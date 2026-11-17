@@ -6,6 +6,7 @@ final class ActionMenuViewController: UIViewController {
     var onPlay: (() -> Void)?
     var onSleep: (() -> Void)?
     var onOpenMateria: (() -> Void)?
+    var onOpenExpeditions: (() -> Void)?
     var onShowStatus: (() -> Void)?
     var onClose: (() -> Void)?
     private let titleLabel: UILabel = { ScreenKit.label("¿Qué hacemos?", size: 27, color: ScreenKit.accent, weight: .bold) }()
@@ -25,6 +26,7 @@ final class ActionMenuViewController: UIViewController {
     private let sleepButton: UIButton = { ScreenKit.button("🛌  Dormir") }()
     private let statusButton: UIButton = { ScreenKit.button("📊  Estado") }()
     private let materiaButton: UIButton = { ScreenKit.button("🔮  Materia y habilidades") }()
+    private let expeditionsButton: UIButton = { ScreenKit.button("🧭  Salir de expedición") }()
     private let closeButton: UIButton = { ScreenKit.button("Volver") }()
     private lazy var petStateStack: UIStackView = {
         let stack = ScreenKit.horizontalStack([petSpriteView, petStateLabel])
@@ -33,7 +35,7 @@ final class ActionMenuViewController: UIViewController {
         return stack
     }()
     private lazy var contentStack: UIStackView = {
-        ScreenKit.stack([titleLabel, petStateCard, feedButton, playButton, sleepButton, materiaButton, statusButton, closeButton], spacing: 12)
+        ScreenKit.stack([titleLabel, petStateCard, feedButton, playButton, sleepButton, expeditionsButton, materiaButton, statusButton, closeButton], spacing: 12)
     }()
 
     init(gameManager: GameManager) {
@@ -51,6 +53,7 @@ final class ActionMenuViewController: UIViewController {
         sleepButton.addTarget(self, action: #selector(sleep), for: .touchUpInside)
         statusButton.addTarget(self, action: #selector(status), for: .touchUpInside)
         materiaButton.addTarget(self, action: #selector(openMateria), for: .touchUpInside)
+        expeditionsButton.addTarget(self, action: #selector(openExpeditions), for: .touchUpInside)
         closeButton.addTarget(self, action: #selector(close), for: .touchUpInside)
         petStateCard.addSubview(petStateStack)
         NSLayoutConstraint.activate([
@@ -85,5 +88,6 @@ final class ActionMenuViewController: UIViewController {
     @objc private func sleep() { onSleep?() }
     @objc private func status() { onShowStatus?() }
     @objc private func openMateria() { onOpenMateria?() }
+    @objc private func openExpeditions() { onOpenExpeditions?() }
     @objc private func close() { onClose?() }
 }

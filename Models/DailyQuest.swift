@@ -4,19 +4,21 @@ enum DailyQuestKind: String, CaseIterable, Codable {
     case feed
     case play
     case sleep
+    case expedition
 
     var title: String {
         switch self {
         case .feed: return "Dale de comer 2 veces"
         case .play: return "Juega una partida"
         case .sleep: return "Deja que descanse"
+        case .expedition: return "Completa una expedición"
         }
     }
 
     var target: Int {
         switch self {
         case .feed: return 2
-        case .play, .sleep: return 1
+        case .play, .sleep, .expedition: return 1
         }
     }
 
@@ -25,6 +27,7 @@ enum DailyQuestKind: String, CaseIterable, Codable {
         case .feed: return 15
         case .play: return 20
         case .sleep: return 15
+        case .expedition: return 30
         }
     }
 
@@ -33,6 +36,7 @@ enum DailyQuestKind: String, CaseIterable, Codable {
         case .feed: return "🍖"
         case .play: return "🎮"
         case .sleep: return "🌙"
+        case .expedition: return "🧭"
         }
     }
 }
@@ -80,9 +84,15 @@ struct DailyQuestBoard: Codable, Equatable {
 
     mutating func refreshIfNeeded(at date: Date = Date(), calendar: Calendar = .current) {
         let today = Self.key(for: date, calendar: calendar)
-        guard dayKey != today else { return }
-        dayKey = today
-        quests = DailyQuestKind.allCases.map { DailyQuest(kind: $0) }
+        if dayKey != today {
+            dayKey = today
+            quests = DailyQuestKind.allCases.map { DailyQuest(kind: $0) }
+            return
+        }
+
+        for kind in DailyQuestKind.allCases where !quests.contains(where: { $0.kind == kind }) {
+            quests.append(DailyQuest(kind: kind))
+        }
     }
 
     private static func key(for date: Date, calendar: Calendar) -> String {

@@ -33,6 +33,7 @@ if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
     .\Models\StoreItem.swift `
     .\Models\WorldPhase.swift `
     .\Models\DailyQuest.swift `
+    .\Models\Expedition.swift `
     .\Managers\GameManager.swift
 
 if ($LASTEXITCODE -ne 0) {

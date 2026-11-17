@@ -48,6 +48,7 @@ struct PetCareModifiers: Equatable {
 
 struct PetModel: Codable, Equatable {
     var kind: PetKind
+    var name: String
     var hunger: Double
     var happiness: Double
     var energy: Double
@@ -57,8 +58,9 @@ struct PetModel: Codable, Equatable {
     var isSleeping: Bool
     var sleepStartedAt: Date?
 
-    init(kind: PetKind, hunger: Double = 85, happiness: Double = 85, energy: Double = 85, level: Int = 1, experience: Int = 0, lastUpdated: Date = Date(), isSleeping: Bool = false, sleepStartedAt: Date? = nil) {
+    init(kind: PetKind, name: String? = nil, hunger: Double = 85, happiness: Double = 85, energy: Double = 85, level: Int = 1, experience: Int = 0, lastUpdated: Date = Date(), isSleeping: Bool = false, sleepStartedAt: Date? = nil) {
         self.kind = kind
+        self.name = Self.normalizedName(name, fallback: kind.displayName)
         self.hunger = Self.clamp(hunger)
         self.happiness = Self.clamp(happiness)
         self.energy = Self.clamp(energy)
@@ -70,12 +72,13 @@ struct PetModel: Codable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case kind, hunger, happiness, energy, level, experience, lastUpdated, isSleeping, sleepStartedAt
+        case kind, name, hunger, happiness, energy, level, experience, lastUpdated, isSleeping, sleepStartedAt
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         kind = try container.decode(PetKind.self, forKey: .kind)
+        name = Self.normalizedName(try container.decodeIfPresent(String.self, forKey: .name), fallback: kind.displayName)
         hunger = Self.clamp(try container.decode(Double.self, forKey: .hunger))
         happiness = Self.clamp(try container.decode(Double.self, forKey: .happiness))
         energy = Self.clamp(try container.decode(Double.self, forKey: .energy))
@@ -125,6 +128,15 @@ struct PetModel: Codable, Equatable {
     }
 
     mutating func feed(amount: Double = 25) { hunger = Self.clamp(hunger + max(0, amount)) }
+
+    @discardableResult
+    mutating func rename(to newName: String) -> Bool {
+        let normalized = Self.normalizedName(newName, fallback: "")
+        guard !normalized.isEmpty, normalized != name else { return false }
+        name = normalized
+        return true
+    }
+
     mutating func increaseHappiness(by amount: Double) { happiness = Self.clamp(happiness + max(0, amount)) }
     mutating func restoreEnergy(by amount: Double) { energy = Self.clamp(energy + max(0, amount)) }
     mutating func spendEnergy(_ amount: Double) { energy = Self.clamp(energy - max(0, amount)) }
@@ -153,4 +165,11 @@ struct PetModel: Codable, Equatable {
     }
 
     private static func clamp(_ value: Double) -> Double { min(100, max(0, value)) }
+
+    private static func normalizedName(_ value: String?, fallback: String) -> String {
+        guard let value else { return fallback }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return fallback }
+        return String(trimmed.prefix(16))
+    }
 }

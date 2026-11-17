@@ -13,6 +13,7 @@ final class GameManager {
         static let equippedMateria = "finalgochi.equippedMateria.v1"
         static let magicPoints = "finalgochi.magicPoints.v1"
         static let magicUpdatedAt = "finalgochi.magicUpdatedAt.v1"
+        static let activeExpedition = "finalgochi.activeExpedition.v1"
     }
 
     private let defaults: UserDefaults
@@ -23,6 +24,7 @@ final class GameManager {
     private(set) var equippedItems: [EquipmentSlot: StoreItem]
     private(set) var inventory: [ConsumableItem: Int]
     private(set) var dailyQuests: DailyQuestBoard
+    private(set) var activeExpedition: ActiveExpedition?
     private(set) var ownedMateria: Set<Materia>
     private(set) var equippedMateria: [Materia]
     private(set) var magicPoints: Int
@@ -52,6 +54,7 @@ final class GameManager {
         self.defaults = defaults
         gil = defaults.object(forKey: Key.gil) as? Int ?? 50
         dailyQuests = Self.decode(DailyQuestBoard.self, from: defaults.data(forKey: Key.quests)) ?? DailyQuestBoard()
+        activeExpedition = Self.decode(ActiveExpedition.self, from: defaults.data(forKey: Key.activeExpedition))
 
         let savedAccessories = Self.decode([StoreItem].self, from: defaults.data(forKey: Key.accessories)) ?? []
         let loadedOwnedItems = Set(savedAccessories)
@@ -105,6 +108,15 @@ final class GameManager {
         onChange?()
     }
 
+    @discardableResult
+    func renamePet(to name: String) -> Bool {
+        guard var current = pet, current.rename(to: name) else { return false }
+        pet = current
+        persist()
+        onChange?()
+        return true
+    }
+
     func reset() {
         timer?.invalidate()
         timer = nil
@@ -114,6 +126,7 @@ final class GameManager {
         equippedItems = [:]
         inventory = [.ration: 2, .potion: 1]
         dailyQuests = DailyQuestBoard()
+        activeExpedition = nil
         ownedMateria = [.cure]
         equippedMateria = [.cure]
         magicPoints = Self.maximumMagicPoints
@@ -122,6 +135,47 @@ final class GameManager {
         defaults.removeObject(forKey: Key.pet)
         persist()
         onChange?()
+    }
+
+    @discardableResult
+    func startExpedition(_ route: ExpeditionRoute, at date: Date = Date()) -> Bool {
+        updateElapsedTime(now: date)
+        guard canStartExpedition(route), var current = pet else { return false }
+
+        current.spendEnergy(route.energyCost)
+        current.lastUpdated = date
+        pet = current
+        activeExpedition = ActiveExpedition(route: route, startedAt: date)
+        persist()
+        onChange?()
+        return true
+    }
+
+    func canStartExpedition(_ route: ExpeditionRoute) -> Bool {
+        guard activeExpedition == nil, let pet,
+              !pet.isSleeping, !pet.isGameOver,
+              pet.level >= route.minimumLevel,
+              pet.energy >= route.minimumEnergy,
+              pet.hunger >= 20, pet.happiness >= 20 else { return false }
+        return true
+    }
+
+    @discardableResult
+    func claimExpedition(at date: Date = Date()) -> Bool {
+        guard let expedition = activeExpedition, expedition.isReady(at: date) else { return false }
+        updateElapsedTime(now: date)
+        guard var current = pet, !current.isGameOver else { return false }
+
+        let route = expedition.route
+        current.addExperience(Int((Double(route.experienceReward) * careModifiers.experienceGainMultiplier).rounded()))
+        pet = current
+        gil += route.gilReward
+        inventory[route.loot, default: 0] += 1
+        activeExpedition = nil
+        recordQuest(.expedition)
+        persist()
+        onChange?()
+        return true
     }
 
     func feed() {
@@ -358,6 +412,11 @@ final class GameManager {
         }
         if let data = try? JSONEncoder().encode(dailyQuests) {
             defaults.set(data, forKey: Key.quests)
+        }
+        if let activeExpedition, let data = try? JSONEncoder().encode(activeExpedition) {
+            defaults.set(data, forKey: Key.activeExpedition)
+        } else {
+            defaults.removeObject(forKey: Key.activeExpedition)
         }
         if let data = try? JSONEncoder().encode(ownedMateria.sorted { $0.rawValue < $1.rawValue }) {
             defaults.set(data, forKey: Key.materia)

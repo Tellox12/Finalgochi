@@ -40,6 +40,7 @@ final class AppCoordinator: Coordinator {
         screen.onOpenCharacterSheet = { [weak self] in self?.showCharacterSheet() }
         screen.onOpenShop = { [weak self] in self?.showShop() }
         screen.onOpenSettings = { [weak self] in self?.showSettings() }
+        screen.onOpenExpeditions = { [weak self] in self?.showExpeditions() }
         screen.onGameOver = { [weak self] in self?.showGameOver() }
         setRoot(screen)
     }
@@ -49,6 +50,7 @@ final class AppCoordinator: Coordinator {
         screen.onFeed = { [weak self] in self?.showInventory() }
         screen.onPlay = { [weak self] in self?.showMinigame() }
         screen.onOpenMateria = { [weak self] in self?.showMateria() }
+        screen.onOpenExpeditions = { [weak self] in self?.showExpeditions() }
         screen.onSleep = { [weak self] in
             guard let self else { return }
             if self.gameManager.pet?.isSleeping == true {
@@ -76,6 +78,12 @@ final class AppCoordinator: Coordinator {
             self.gameManager.playMiniGame(success: success)
             self.showHome()
         }
+        navigationController.pushViewController(screen, animated: true)
+    }
+
+    private func showExpeditions() {
+        let screen = ExpeditionsViewController(gameManager: gameManager)
+        screen.onClose = { [weak self] in self?.showHome() }
         navigationController.pushViewController(screen, animated: true)
     }
 
@@ -130,6 +138,7 @@ final class AppCoordinator: Coordinator {
         let screen = GameOverViewController()
         screen.onRestart = { [weak self] in
             guard let self else { return }
+            LocalNotificationManager.clearExpeditionReturn()
             self.gameManager.reset()
             self.showCharacterSelect()
         }

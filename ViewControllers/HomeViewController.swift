@@ -7,6 +7,7 @@ final class HomeViewController: UIViewController {
     var onOpenCharacterSheet: (() -> Void)?
     var onOpenShop: (() -> Void)?
     var onOpenSettings: (() -> Void)?
+    var onOpenExpeditions: (() -> Void)?
     var onGameOver: (() -> Void)?
 
     private let sectionLabel: UILabel = {
@@ -54,6 +55,7 @@ final class HomeViewController: UIViewController {
     private let feedQuestRow: DailyQuestRowView = { DailyQuestRowView() }()
     private let playQuestRow: DailyQuestRowView = { DailyQuestRowView() }()
     private let sleepQuestRow: DailyQuestRowView = { DailyQuestRowView() }()
+    private let expeditionQuestRow: DailyQuestRowView = { DailyQuestRowView() }()
     private let questsCard: UIView = { ScreenKit.card() }()
     private let statsCard: UIView = { ScreenKit.card() }()
     private let statsTitleLabel: UILabel = {
@@ -77,6 +79,7 @@ final class HomeViewController: UIViewController {
     private let sheetButton: UIButton = { ScreenKit.button("📜  Estado") }()
     private let shopButton: UIButton = { ScreenKit.button("🛍️  Tienda") }()
     private let settingsButton: UIButton = { ScreenKit.button("⚙️  Ajustes") }()
+    private let expeditionsButton: UIButton = { ScreenKit.button("🧭  Expediciones") }()
 
     private lazy var headerStack: UIStackView = {
         let stack = ScreenKit.horizontalStack([sectionLabel, gilLabel])
@@ -96,7 +99,7 @@ final class HomeViewController: UIViewController {
         ScreenKit.stack([statsTitleLabel, hungerMeter, happinessMeter, energyMeter], spacing: 13)
     }()
     private lazy var questsStack: UIStackView = {
-        ScreenKit.stack([questsTitleLabel, feedQuestRow, playQuestRow, sleepQuestRow], spacing: 12)
+        ScreenKit.stack([questsTitleLabel, feedQuestRow, playQuestRow, sleepQuestRow, expeditionQuestRow], spacing: 12)
     }()
     private lazy var utilityRowOne: UIStackView = {
         let stack = ScreenKit.horizontalStack([inventoryButton, sheetButton])
@@ -109,7 +112,7 @@ final class HomeViewController: UIViewController {
         return stack
     }()
     private lazy var contentStack: UIStackView = {
-        ScreenKit.stack([headerStack, petCard, statsCard, questsCard, actionsButton, utilityRowOne, utilityRowTwo], spacing: 15)
+        ScreenKit.stack([headerStack, petCard, statsCard, questsCard, actionsButton, utilityRowOne, utilityRowTwo, expeditionsButton], spacing: 15)
     }()
 
     init(gameManager: GameManager) {
@@ -137,6 +140,13 @@ final class HomeViewController: UIViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        gameManager.updateElapsedTime()
+        if let expedition = gameManager.activeExpedition {
+            let title = expedition.isReady() ? "🎁  Botín listo · \(expedition.route.title)" : "🧭  Expedición · \(expedition.route.title)"
+            ScreenKit.setTitle(title, on: expeditionsButton)
+        } else {
+            ScreenKit.setTitle("🧭  Expediciones", on: expeditionsButton)
+        }
         petSpriteView.transform = .identity
         UIView.animate(withDuration: 1.8, delay: 0, options: [.autoreverse, .repeat, .allowUserInteraction, .beginFromCurrentState], animations: {
             self.petSpriteView.transform = CGAffineTransform(translationX: 0, y: -5)
@@ -184,6 +194,7 @@ final class HomeViewController: UIViewController {
         sheetButton.addTarget(self, action: #selector(openSheet), for: .touchUpInside)
         shopButton.addTarget(self, action: #selector(openShop), for: .touchUpInside)
         settingsButton.addTarget(self, action: #selector(openSettings), for: .touchUpInside)
+        expeditionsButton.addTarget(self, action: #selector(openExpeditions), for: .touchUpInside)
 
         ScreenKit.setBackground(UIColor(red: 0.19, green: 0.37, blue: 0.55, alpha: 1), on: actionsButton)
         actionsButton.layer.borderWidth = 1
@@ -207,9 +218,10 @@ final class HomeViewController: UIViewController {
             case .feed: feedQuestRow.update(quest)
             case .play: playQuestRow.update(quest)
             case .sleep: sleepQuestRow.update(quest)
+            case .expedition: expeditionQuestRow.update(quest)
             }
         }
-        nameLabel.text = "\(pet.kind.displayName)  ·  NIVEL \(pet.level)"
+        nameLabel.text = "\(pet.name)  ·  NIVEL \(pet.level)"
         accessoryLabel.text = "EQUIPO  ·  \(gameManager.equipmentSummary)"
         sleepStatusLabel.text = pet.isSleeping ? "✦  DESCANSANDO  ✦" : ""
         gilLabel.text = "  ◈  \(gameManager.gil) GIL  "
@@ -223,6 +235,7 @@ final class HomeViewController: UIViewController {
     @objc private func openSheet() { onOpenCharacterSheet?() }
     @objc private func openShop() { onOpenShop?() }
     @objc private func openSettings() { onOpenSettings?() }
+    @objc private func openExpeditions() { onOpenExpeditions?() }
 }
 
 private final class StatusMeterView: UIView {

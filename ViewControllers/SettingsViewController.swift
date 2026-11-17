@@ -11,7 +11,7 @@ final class SettingsViewController: UIViewController {
     private let notificationsLabel: UILabel = { let label = ScreenKit.label("Notificaciones", size: 18); label.textAlignment = .left; return label }()
     private let soundHint: UILabel = { let label = ScreenKit.label("Respuesta sonora al pulsar", size: 11, color: ScreenKit.mutedText); label.textAlignment = .left; return label }()
     private let hapticsHint: UILabel = { let label = ScreenKit.label("Vibración en dispositivos compatibles", size: 11, color: ScreenKit.mutedText); label.textAlignment = .left; return label }()
-    private let notificationsHint: UILabel = { let label = ScreenKit.label("Recordatorios para cuidar a tu mascota", size: 11, color: ScreenKit.mutedText); label.textAlignment = .left; return label }()
+    private let notificationsHint: UILabel = { let label = ScreenKit.label("Avisos de cuidado y expediciones completadas", size: 11, color: ScreenKit.mutedText); label.textAlignment = .left; return label }()
     private let closeButton: UIButton = { ScreenKit.button("Volver al juego") }()
     private lazy var soundTextStack: UIStackView = { ScreenKit.stack([soundLabel, soundHint], spacing: 4) }()
     private lazy var hapticsTextStack: UIStackView = { ScreenKit.stack([hapticsLabel, hapticsHint], spacing: 4) }()

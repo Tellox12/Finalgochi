@@ -14,6 +14,29 @@ final class CharacterSheetViewController: UIViewController {
     }()
     private let nameLabel: UILabel = { ScreenKit.label("", size: 25, color: .white, weight: .bold) }()
     private let levelLabel: UILabel = { ScreenKit.label("", size: 13, color: ScreenKit.accent, weight: .semibold) }()
+    private let nameTextField: UITextField = {
+        let field = UITextField()
+        field.translatesAutoresizingMaskIntoConstraints = false
+        field.backgroundColor = ScreenKit.background.withAlphaComponent(0.7)
+        field.textColor = .white
+        field.tintColor = ScreenKit.accent
+        field.font = .systemFont(ofSize: 16, weight: .medium)
+        field.textAlignment = .center
+        field.autocorrectionType = .no
+        field.autocapitalizationType = .words
+        field.returnKeyType = .done
+        field.clearButtonMode = .whileEditing
+        field.layer.cornerRadius = 12
+        field.layer.borderWidth = 1
+        field.layer.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
+        field.attributedPlaceholder = NSAttributedString(string: "Nombre del compañero", attributes: [.foregroundColor: ScreenKit.mutedText])
+        field.accessibilityLabel = "Nombre de la mascota"
+        return field
+    }()
+    private let renameButton: UIButton = { ScreenKit.button("✏️  Guardar nombre") }()
+    private let renameFeedbackLabel: UILabel = {
+        ScreenKit.label("Puedes usar hasta 16 caracteres", size: 11, color: ScreenKit.mutedText)
+    }()
     private let experienceLabel: UILabel = {
         let label = ScreenKit.label("", size: 12, color: ScreenKit.mutedText, weight: .medium)
         label.textAlignment = .left
@@ -41,7 +64,7 @@ final class CharacterSheetViewController: UIViewController {
     private let closeButton: UIButton = { ScreenKit.button("Volver al hábitat") }()
 
     private lazy var characterStack: UIStackView = {
-        let stack = ScreenKit.stack([spriteView, nameLabel, levelLabel, experienceLabel, experienceProgress], spacing: 8)
+        let stack = ScreenKit.stack([spriteView, nameLabel, levelLabel, nameTextField, renameButton, renameFeedbackLabel, experienceLabel, experienceProgress], spacing: 8)
         stack.alignment = .center
         return stack
     }()
@@ -66,6 +89,8 @@ final class CharacterSheetViewController: UIViewController {
         super.viewDidLoad()
         ScreenKit.configure(self, title: "Ficha")
         closeButton.addTarget(self, action: #selector(close), for: .touchUpInside)
+        renameButton.addTarget(self, action: #selector(saveName), for: .touchUpInside)
+        nameTextField.addTarget(self, action: #selector(saveName), for: .editingDidEndOnExit)
         characterCard.addSubview(characterStack)
         statsCard.addSubview(statsStack)
         belongingsCard.addSubview(belongingsStack)
@@ -76,6 +101,7 @@ final class CharacterSheetViewController: UIViewController {
             characterStack.bottomAnchor.constraint(equalTo: characterCard.bottomAnchor, constant: -16),
             spriteView.widthAnchor.constraint(equalToConstant: 108),
             spriteView.heightAnchor.constraint(equalToConstant: 108),
+            nameTextField.heightAnchor.constraint(equalToConstant: 46),
             experienceProgress.widthAnchor.constraint(equalTo: characterStack.widthAnchor),
             experienceProgress.heightAnchor.constraint(equalToConstant: 7),
             statsStack.topAnchor.constraint(equalTo: statsCard.topAnchor, constant: 18),
@@ -97,8 +123,9 @@ final class CharacterSheetViewController: UIViewController {
         spriteView.kind = pet.kind
         spriteView.mood = pet.mood
         spriteView.equippedItems = gameManager.activeEquipment
-        nameLabel.text = pet.kind.displayName
-        levelLabel.text = "NIVEL \(pet.level)  ·  \(pet.mood.title)"
+        nameLabel.text = pet.name
+        levelLabel.text = "\(pet.kind.displayName.uppercased())  ·  NIVEL \(pet.level)  ·  \(pet.mood.title)"
+        if !nameTextField.isFirstResponder { nameTextField.text = pet.name }
         experienceLabel.text = "EXPERIENCIA  \(pet.experience) / \(pet.nextLevelExperience)"
         experienceProgress.setProgress(Float(pet.experience) / Float(max(1, pet.nextLevelExperience)), animated: true)
         hungerRow.update(value: pet.hunger)
@@ -113,6 +140,18 @@ final class CharacterSheetViewController: UIViewController {
     }
 
     @objc private func close() { onClose?() }
+
+    @objc private func saveName() {
+        guard let proposedName = nameTextField.text,
+              gameManager.renamePet(to: proposedName) else {
+            renameFeedbackLabel.text = "Escribe un nombre distinto para guardarlo"
+            renameFeedbackLabel.textColor = .systemOrange
+            return
+        }
+        nameTextField.resignFirstResponder()
+        renameFeedbackLabel.text = "¡Nombre actualizado!"
+        renameFeedbackLabel.textColor = ScreenKit.mint
+    }
 }
 
 private final class SheetStatRow: UIView {
