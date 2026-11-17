@@ -154,7 +154,7 @@ final class CharacterSheetViewController: UIViewController {
         }.joined(separator: "\n")
         let decor = gameManager.progression.equippedDecoration?.name ?? "Sin decoración equipada"
         let streakUnit = gameManager.dailyStreak.days == 1 ? "día" : "días"
-        inventoryLabel.text += "\n\nRACHA DE CUIDADO\n🔥 \(gameManager.dailyStreak.days) \(streakUnit) · recompensa de hoy: \(gameManager.dailyStreak.lastReward) Gil\n\nCOLECCIÓN DE COMPAÑEROS · \(gameManager.progression.discoveredPets.count)/\(PetKind.allCases.count)\n\(pets)\n\nHÁBITAT · \(gameManager.progression.ownedDecorations.count)/\(HabitatDecoration.allCases.count)\n🏡 \(decor)\n\nLOGROS · \(unlocked.count)/\(GameAchievement.allCases.count)\n\(achievements)"
+        inventoryLabel.text = (inventoryLabel.text ?? "") + "\n\nRACHA DE CUIDADO\n🔥 \(gameManager.dailyStreak.days) \(streakUnit) · recompensa de hoy: \(gameManager.dailyStreak.lastReward) Gil\n\nCOLECCIÓN DE COMPAÑEROS · \(gameManager.progression.discoveredPets.count)/\(PetKind.allCases.count)\n\(pets)\n\nHÁBITAT · \(gameManager.progression.ownedDecorations.count)/\(HabitatDecoration.allCases.count)\n🏡 \(decor)\n\nLOGROS · \(unlocked.count)/\(GameAchievement.allCases.count)\n\(achievements)"
         inventoryLabel.textAlignment = .left
     }
 
