@@ -54,24 +54,26 @@ final class GameManager {
         dailyQuests = Self.decode(DailyQuestBoard.self, from: defaults.data(forKey: Key.quests)) ?? DailyQuestBoard()
 
         let savedAccessories = Self.decode([StoreItem].self, from: defaults.data(forKey: Key.accessories)) ?? []
-        ownedItems = Set(savedAccessories)
+        let loadedOwnedItems = Set(savedAccessories)
+        ownedItems = loadedOwnedItems
         if let savedEquipment = Self.decode([EquipmentSlot: StoreItem].self, from: defaults.data(forKey: Key.equipment)) {
             equippedItems = savedEquipment.reduce(into: [EquipmentSlot: StoreItem]()) { result, entry in
-                guard entry.key == entry.value.slot, ownedItems.contains(entry.value) else { return }
+                guard entry.key == entry.value.slot, loadedOwnedItems.contains(entry.value) else { return }
                 result[entry.key] = entry.value
             }
         } else {
             equippedItems = [:]
             if let rawValue = defaults.string(forKey: Key.equippedAccessory),
                let oldItem = StoreItem(rawValue: rawValue),
-               ownedItems.contains(oldItem) {
+               loadedOwnedItems.contains(oldItem) {
                 equippedItems[oldItem.slot] = oldItem
             }
         }
 
-        ownedMateria = Set(Self.decode([Materia].self, from: defaults.data(forKey: Key.materia)) ?? [.cure])
+        let loadedOwnedMateria = Set(Self.decode([Materia].self, from: defaults.data(forKey: Key.materia)) ?? [.cure])
+        ownedMateria = loadedOwnedMateria
         let savedEquippedMateria = Self.decode([Materia].self, from: defaults.data(forKey: Key.equippedMateria)) ?? [.cure]
-        equippedMateria = Array(savedEquippedMateria.filter { ownedMateria.contains($0) }.prefix(Self.maximumEquippedMateria))
+        equippedMateria = Array(savedEquippedMateria.filter { loadedOwnedMateria.contains($0) }.prefix(Self.maximumEquippedMateria))
         magicPoints = min(Self.maximumMagicPoints, max(0, defaults.object(forKey: Key.magicPoints) as? Int ?? Self.maximumMagicPoints))
         lastMagicUpdatedAt = defaults.object(forKey: Key.magicUpdatedAt) as? Date ?? Date()
 
