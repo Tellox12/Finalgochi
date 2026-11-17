@@ -33,7 +33,7 @@ final class ActionMenuViewController: UIViewController {
         statusButton.addTarget(self, action: #selector(status), for: .touchUpInside)
         closeButton.addTarget(self, action: #selector(close), for: .touchUpInside)
         let isSleeping = gameManager.pet?.isSleeping == true
-        sleepButton.setTitle(isSleeping ? "☀️  Despertar" : "🛌  Dormir", for: .normal)
+        ScreenKit.setTitle(isSleeping ? "☀️  Despertar" : "🛌  Dormir", on: sleepButton)
         sleepButton.isEnabled = isSleeping || (gameManager.pet?.energy ?? 100) < 100
         sleepButton.alpha = sleepButton.isEnabled ? 1 : 0.45
         ScreenKit.install(contentStack, in: self)

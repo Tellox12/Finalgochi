@@ -82,11 +82,11 @@ final class ShopViewController: UIViewController {
         } else {
             title = "Comprar \(item.emoji) \(item.name)  ·  \(item.price) Gil"
         }
-        button.setTitle(title, for: .normal)
+        ScreenKit.setTitle(title, on: button)
     }
 
     private func updateConsumableButton(_ button: UIButton, item: ConsumableItem) {
-        button.setTitle("Comprar \(item.emoji) \(item.name)  ·  \(item.price) Gil", for: .normal)
+        ScreenKit.setTitle("Comprar \(item.emoji) \(item.name)  ·  \(item.price) Gil", on: button)
     }
 
     @objc private func buyRibbon() { purchase(.ribbon) }

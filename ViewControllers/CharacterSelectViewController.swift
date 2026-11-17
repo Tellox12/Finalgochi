@@ -36,7 +36,7 @@ final class CharacterSelectViewController: UIViewController {
 
     private static func makeCharacterCard(title: String, color: UIColor) -> UIButton {
         let button = ScreenKit.button(title)
-        button.backgroundColor = color.withAlphaComponent(0.48)
+        ScreenKit.setBackground(color.withAlphaComponent(0.48), on: button)
         button.layer.cornerRadius = 20
         button.layer.borderWidth = 1
         button.layer.borderColor = color.withAlphaComponent(0.9).cgColor
@@ -44,7 +44,6 @@ final class CharacterSelectViewController: UIViewController {
         button.titleLabel?.numberOfLines = 3
         button.titleLabel?.lineBreakMode = .byWordWrapping
         button.titleLabel?.textAlignment = .center
-        button.contentEdgeInsets = UIEdgeInsets(top: 16, left: 14, bottom: 16, right: 14)
         button.accessibilityHint = "Toca dos veces para elegir este compañero"
         button.heightAnchor.constraint(equalToConstant: 132).isActive = true
         return button

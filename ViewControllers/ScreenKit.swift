@@ -33,14 +33,39 @@ enum ScreenKit {
     static func button(_ title: String) -> UIButton {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.setTitle(title, for: .normal)
-        button.setTitleColor(.white, for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 18, weight: .semibold)
-        button.backgroundColor = panel
+        var configuration = UIButton.Configuration.filled()
+        configuration.title = title
+        configuration.baseForegroundColor = .white
+        configuration.baseBackgroundColor = panel
+        configuration.cornerStyle = .large
+        configuration.contentInsets = NSDirectionalEdgeInsets(top: 14, leading: 18, bottom: 14, trailing: 18)
+        configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = .systemFont(ofSize: 18, weight: .semibold)
+            return outgoing
+        }
+        button.configuration = configuration
         button.layer.cornerRadius = 14
-        button.contentEdgeInsets = UIEdgeInsets(top: 14, left: 18, bottom: 14, right: 18)
         button.addTarget(FeedbackManager.shared, action: #selector(FeedbackManager.buttonWasTapped(_:)), for: .touchUpInside)
         return button
+    }
+
+    static func setTitle(_ title: String, on button: UIButton) {
+        guard var configuration = button.configuration else {
+            button.setTitle(title, for: .normal)
+            return
+        }
+        configuration.title = title
+        button.configuration = configuration
+    }
+
+    static func setBackground(_ color: UIColor, on button: UIButton) {
+        guard var configuration = button.configuration else {
+            button.backgroundColor = color
+            return
+        }
+        configuration.baseBackgroundColor = color
+        button.configuration = configuration
     }
 
     static func stack(_ views: [UIView], spacing: CGFloat = 14) -> UIStackView {

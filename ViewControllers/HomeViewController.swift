@@ -129,7 +129,7 @@ final class HomeViewController: UIViewController {
         shopButton.addTarget(self, action: #selector(openShop), for: .touchUpInside)
         settingsButton.addTarget(self, action: #selector(openSettings), for: .touchUpInside)
 
-        actionsButton.backgroundColor = UIColor(red: 0.19, green: 0.37, blue: 0.55, alpha: 1)
+        ScreenKit.setBackground(UIColor(red: 0.19, green: 0.37, blue: 0.55, alpha: 1), on: actionsButton)
         actionsButton.layer.borderWidth = 1
         actionsButton.layer.borderColor = ScreenKit.accent.withAlphaComponent(0.35).cgColor
         NSLayoutConstraint.activate([
@@ -196,7 +196,7 @@ private final class StatusMeterView: UIView {
             progressView.heightAnchor.constraint(equalToConstant: 8),
             heightAnchor.constraint(equalToConstant: 38)
         ])
-        accessibilityElement = true
+        isAccessibilityElement = true
         accessibilityLabel = title
     }
 

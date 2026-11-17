@@ -39,7 +39,7 @@ final class InventoryViewController: UIViewController {
 
     private func update(_ button: UIButton, item: ConsumableItem) {
         let quantity = gameManager.inventory[item, default: 0]
-        button.setTitle("\(item.emoji)  \(item.name)  ×\(quantity)", for: .normal)
+        ScreenKit.setTitle("\(item.emoji)  \(item.name)  ×\(quantity)", on: button)
         button.isEnabled = quantity > 0
         button.alpha = quantity > 0 ? 1 : 0.45
     }

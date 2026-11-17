@@ -29,16 +29,16 @@ final class MinigameViewController: UIViewController {
     @objc private func startRound() {
         isReady = false
         targetButton.isEnabled = true
-        targetButton.backgroundColor = ScreenKit.panel
-        targetButton.setTitle("🔮 Espera…", for: .normal)
+        ScreenKit.setBackground(ScreenKit.panel, on: targetButton)
+        ScreenKit.setTitle("🔮 Espera…", on: targetButton)
         startButton.isEnabled = false
         let delay = Double.random(in: 1.2...3.2)
         roundTimer?.invalidate()
         roundTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             guard let self else { return }
             self.isReady = true
-            self.targetButton.backgroundColor = .systemGreen
-            self.targetButton.setTitle("¡TOCA!", for: .normal)
+            ScreenKit.setBackground(.systemGreen, on: self.targetButton)
+            ScreenKit.setTitle("¡TOCA!", on: self.targetButton)
         }
     }
 
