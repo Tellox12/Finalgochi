@@ -12,4 +12,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         appCoordinator = coordinator
         coordinator.start()
     }
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        appCoordinator?.sceneDidBecomeActive()
+    }
 }

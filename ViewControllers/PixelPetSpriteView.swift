@@ -13,6 +13,12 @@ final class PixelPetSpriteView: UIView {
             setNeedsDisplay()
         }
     }
+    var evolutionStage: EvolutionStage = .hatchling {
+        didSet {
+            updateAccessibilityHint()
+            setNeedsDisplay()
+        }
+    }
     var accessorySymbol: String? {
         didSet {
             accessibilityHint = accessorySymbol.map { "Accesorio equipado: \($0)" }
@@ -22,7 +28,7 @@ final class PixelPetSpriteView: UIView {
     var showsMoodBadge = true { didSet { setNeedsDisplay() } }
     var equippedItems: [StoreItem] = [] {
         didSet {
-            accessibilityHint = equippedItems.isEmpty ? nil : "Equipo: " + equippedItems.map(\.name).joined(separator: ", ")
+            updateAccessibilityHint()
             setNeedsDisplay()
         }
     }
@@ -52,6 +58,14 @@ final class PixelPetSpriteView: UIView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) no está disponible") }
 
+    private func updateAccessibilityHint() {
+        var details = ["Etapa: \(evolutionStage.title)"]
+        if !equippedItems.isEmpty {
+            details.append("Equipo: " + equippedItems.map(\.name).joined(separator: ", "))
+        }
+        accessibilityHint = details.joined(separator: ". ")
+    }
+
     override func draw(_ rect: CGRect) {
         guard let context = UIGraphicsGetCurrentContext() else { return }
         context.setShouldAntialias(false)
@@ -80,6 +94,7 @@ final class PixelPetSpriteView: UIView {
         }
 
         drawEquipment(context: context, pixelSize: pixelSize, spriteHeight: spriteHeight, originY: originY)
+        drawEvolutionMark(pixelSize: pixelSize, originY: originY)
 
         if showsMoodBadge {
             let badge = CGRect(x: bounds.width - 38, y: 5, width: 32, height: 28)
@@ -103,6 +118,19 @@ final class PixelPetSpriteView: UIView {
             let accessoryText = accessorySymbol as NSString
             let accessorySize = accessoryText.size(withAttributes: accessoryAttributes)
             accessoryText.draw(at: CGPoint(x: accessoryBadge.midX - accessorySize.width / 2, y: accessoryBadge.midY - accessorySize.height / 2), withAttributes: accessoryAttributes)
+        }
+    }
+
+    private func drawEvolutionMark(pixelSize: CGFloat, originY: CGFloat) {
+        guard evolutionStage != .hatchling else { return }
+        let count = evolutionStage == .legendary ? 5 : (evolutionStage == .veteran ? 3 : 1)
+        let center = bounds.midX
+        let baseY = max(2, originY - pixelSize * 2)
+        let color = evolutionStage == .legendary ? ScreenKit.gold : ScreenKit.accent
+        color.setFill()
+        for index in 0..<count {
+            let xOffset = CGFloat(index - count / 2) * pixelSize * 2
+            UIBezierPath(roundedRect: CGRect(x: center + xOffset - pixelSize / 2, y: baseY, width: pixelSize, height: pixelSize * CGFloat(index.isMultiple(of: 2) ? 2 : 1)), cornerRadius: 1).fill()
         }
     }
 

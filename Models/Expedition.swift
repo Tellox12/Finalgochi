@@ -13,6 +13,14 @@ enum ExpeditionRoute: String, CaseIterable, Codable, Hashable {
         }
     }
 
+    var discoveredPet: PetKind {
+        switch self {
+        case .chocoboTrail: return .chocobo
+        case .goblinMarket: return .moogle
+        case .crystalCavern: return .cactilio
+        }
+    }
+
     var symbol: String {
         switch self {
         case .chocoboTrail: return "🌿"

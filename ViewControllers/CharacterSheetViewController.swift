@@ -20,7 +20,8 @@ final class CharacterSheetViewController: UIViewController {
         field.backgroundColor = ScreenKit.background.withAlphaComponent(0.7)
         field.textColor = .white
         field.tintColor = ScreenKit.accent
-        field.font = .systemFont(ofSize: 16, weight: .medium)
+        field.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: .systemFont(ofSize: 16, weight: .medium))
+        field.adjustsFontForContentSizeCategory = true
         field.textAlignment = .center
         field.autocorrectionType = .no
         field.autocapitalizationType = .words
@@ -128,9 +129,11 @@ final class CharacterSheetViewController: UIViewController {
         guard let pet = gameManager.pet else { return }
         spriteView.kind = pet.kind
         spriteView.mood = pet.mood
+        spriteView.evolutionStage = EvolutionStage(level: pet.level)
         spriteView.equippedItems = gameManager.activeEquipment
         nameLabel.text = pet.name
-        levelLabel.text = "\(pet.kind.displayName.uppercased())  ·  NIVEL \(pet.level)  ·  \(pet.mood.title)"
+        let evolution = EvolutionStage(level: pet.level)
+        levelLabel.text = "\(pet.kind.displayName.uppercased())  ·  NIVEL \(pet.level)  ·  \(evolution.title)  ·  \(pet.mood.title)"
         if !nameTextField.isFirstResponder { nameTextField.text = pet.name }
         experienceLabel.text = "EXPERIENCIA  \(pet.experience) / \(pet.nextLevelExperience)"
         experienceProgress.setProgress(Float(pet.experience) / Float(max(1, pet.nextLevelExperience)), animated: true)
@@ -142,6 +145,16 @@ final class CharacterSheetViewController: UIViewController {
         inventoryLabel.text = "MOCHILA\n" + ConsumableItem.allCases
             .map { "\($0.emoji)  \($0.name)     ×\(gameManager.inventory[$0, default: 0])" }
             .joined(separator: "\n")
+        let pets = PetKind.allCases.map { gameManager.progression.discoveredPets.contains($0) ? "✅ \($0.displayName)" : "🔒 \($0.displayName)" }.joined(separator: " · ")
+        let unlocked = GameAchievement.allCases.filter { gameManager.progression.unlockedAchievements.contains($0) }
+        let achievements = GameAchievement.allCases.map { achievement in
+            gameManager.progression.unlockedAchievements.contains(achievement)
+                ? "🏆 \(achievement.title) · +\(achievement.reward) Gil"
+                : "◇ \(achievement.title) — \(achievement.detail)"
+        }.joined(separator: "\n")
+        let decor = gameManager.progression.equippedDecoration?.name ?? "Sin decoración equipada"
+        let streakUnit = gameManager.dailyStreak.days == 1 ? "día" : "días"
+        inventoryLabel.text += "\n\nRACHA DE CUIDADO\n🔥 \(gameManager.dailyStreak.days) \(streakUnit) · recompensa de hoy: \(gameManager.dailyStreak.lastReward) Gil\n\nCOLECCIÓN DE COMPAÑEROS · \(gameManager.progression.discoveredPets.count)/\(PetKind.allCases.count)\n\(pets)\n\nHÁBITAT · \(gameManager.progression.ownedDecorations.count)/\(HabitatDecoration.allCases.count)\n🏡 \(decor)\n\nLOGROS · \(unlocked.count)/\(GameAchievement.allCases.count)\n\(achievements)"
         inventoryLabel.textAlignment = .left
     }
 

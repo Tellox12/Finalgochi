@@ -113,9 +113,10 @@ final class ExpeditionsViewController: UIViewController {
     private func configure(_ button: UIButton, for route: ExpeditionRoute, tint: UIColor) {
         let minutes = Int(route.duration / 60)
         let durationText = minutes == 0 ? "1 min" : "\(minutes) min"
-        let title = "\(route.symbol)  \(route.title)\n\(route.description)\n\(durationText)  ·  +\(route.gilReward) Gil  ·  +\(route.experienceReward) EXP  ·  \(route.loot.emoji)\nNivel \(route.minimumLevel)+  ·  Energía \(Int(route.minimumEnergy))+"
+        let title = "\(route.symbol)  \(route.title)\n\(route.description)\n\(durationText)  ·  +\(route.gilReward) Gil  ·  +\(route.experienceReward) EXP  ·  \(route.loot.emoji)\nEncuentro: \(route.discoveredPet.emoji) \(route.discoveredPet.displayName)\nNivel \(route.minimumLevel)+  ·  Energía \(Int(route.minimumEnergy))+"
         ScreenKit.setTitle(title, on: button)
-        button.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
+        button.titleLabel?.font = UIFontMetrics(forTextStyle: .headline).scaledFont(for: .systemFont(ofSize: 15, weight: .semibold))
+        button.titleLabel?.adjustsFontForContentSizeCategory = true
         button.titleLabel?.textAlignment = .left
         button.titleLabel?.numberOfLines = 0
         button.contentHorizontalAlignment = .leading
@@ -178,10 +179,15 @@ final class ExpeditionsViewController: UIViewController {
     }
 
     @objc private func claimReward() {
-        guard let route = gameManager.activeExpedition?.route,
-              gameManager.claimExpedition() else { return }
+        guard let route = gameManager.activeExpedition?.route else { return }
+        let hadDiscoveredSpecies = gameManager.progression.discoveredPets.contains(route.discoveredPet)
+        guard gameManager.claimExpedition() else { return }
         LocalNotificationManager.clearExpeditionReturn()
-        feedbackMessage = "¡Recompensa! +\(route.gilReward) Gil, +\(route.experienceReward) EXP y \(route.loot.emoji)."
+        let discovery = route.discoveredPet
+        let discoveryText = hadDiscoveredSpecies
+            ? " · Avance del bestiario: \(discovery.displayName)"
+            : " · Nueva especie descubierta: \(discovery.emoji) \(discovery.displayName)"
+        feedbackMessage = "¡Recompensa! +\(route.gilReward) Gil, +\(route.experienceReward) EXP y \(route.loot.emoji)\(discoveryText)."
         refresh()
     }
 

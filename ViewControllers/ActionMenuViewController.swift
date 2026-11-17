@@ -87,7 +87,7 @@ final class ActionMenuViewController: UIViewController {
         ScreenKit.setTitle(pet.isSleeping ? "☀️  Despertar" : "🛌  Dormir", on: sleepButton)
         ScreenKit.setTitle("🔮  Materia  ·  \(gameManager.equippedMateria.count)/\(GameManager.maximumEquippedMateria)  ·  \(gameManager.magicPoints) PM", on: materiaButton)
         sleepButton.isEnabled = pet.isSleeping || (!pet.isGameOver && pet.energy < 100)
-        playButton.isEnabled = !pet.isSleeping && !pet.isGameOver && pet.energy >= 8
+        playButton.isEnabled = gameManager.canPlayMiniGame
         sleepButton.alpha = sleepButton.isEnabled ? 1 : 0.45
         playButton.alpha = playButton.isEnabled ? 1 : 0.45
     }

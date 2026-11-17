@@ -17,7 +17,7 @@ final class ShopViewController: UIViewController {
         return label
     }()
     private let categoryControl: UISegmentedControl = {
-        let control = UISegmentedControl(items: ["Equipo", "Materia", "Objetos"])
+        let control = UISegmentedControl(items: ["Equipo", "Materia", "Objetos", "Hábitat"])
         control.translatesAutoresizingMaskIntoConstraints = false
         control.selectedSegmentIndex = 0
         control.selectedSegmentTintColor = ScreenKit.accent.withAlphaComponent(0.85)
@@ -28,6 +28,7 @@ final class ShopViewController: UIViewController {
     private let equipmentTitleLabel: UILabel = { ScreenKit.label("🧥  EQUIPO Y VESTIMENTA", size: 12, color: ScreenKit.gold, weight: .bold) }()
     private let materiaTitleLabel: UILabel = { ScreenKit.label("🔮  MATERIAS", size: 12, color: ScreenKit.gold, weight: .bold) }()
     private let suppliesTitleLabel: UILabel = { ScreenKit.label("⚗️  SUMINISTROS", size: 12, color: ScreenKit.gold, weight: .bold) }()
+    private let habitatTitleLabel: UILabel = { ScreenKit.label("🏡  DECORA TU HÁBITAT", size: 12, color: ScreenKit.gold, weight: .bold) }()
     private let messageLabel: UILabel = { ScreenKit.label("Cada pieza ocupa una ranura y aporta una ventaja pasiva.", size: 13, color: ScreenKit.mutedText) }()
     private let materiaButton: UIButton = { ScreenKit.button("Gestionar materias y habilidades  ›") }()
     private let closeButton: UIButton = { ScreenKit.button("Volver al hábitat") }()
@@ -40,6 +41,9 @@ final class ShopViewController: UIViewController {
     }()
     private let consumableButtons: [ConsumableItem: UIButton] = {
         Dictionary(uniqueKeysWithValues: ConsumableItem.allCases.map { ($0, ScreenKit.button("")) })
+    }()
+    private let decorationButtons: [HabitatDecoration: UIButton] = {
+        Dictionary(uniqueKeysWithValues: HabitatDecoration.allCases.map { ($0, ScreenKit.button("")) })
     }()
 
     private lazy var equipmentSection: UIStackView = {
@@ -58,8 +62,13 @@ final class ShopViewController: UIViewController {
         views.append(contentsOf: ConsumableItem.allCases.compactMap { consumableButtons[$0] })
         return ScreenKit.stack(views, spacing: 10)
     }()
+    private lazy var habitatSection: UIStackView = {
+        var views: [UIView] = [habitatTitleLabel]
+        views.append(contentsOf: HabitatDecoration.allCases.compactMap { decorationButtons[$0] })
+        return ScreenKit.stack(views, spacing: 10)
+    }()
     private lazy var contentStack: UIStackView = {
-        ScreenKit.stack([titleLabel, gilLabel, categoryControl, equipmentSection, materiaSection, suppliesSection, messageLabel, closeButton], spacing: 14)
+        ScreenKit.stack([titleLabel, gilLabel, categoryControl, equipmentSection, materiaSection, suppliesSection, habitatSection, messageLabel, closeButton], spacing: 14)
     }()
 
     init(gameManager: GameManager) {
@@ -84,12 +93,17 @@ final class ShopViewController: UIViewController {
             button.accessibilityIdentifier = item.rawValue
             button.addTarget(self, action: #selector(consumableButtonPressed(_:)), for: .touchUpInside)
         }
+        for (decoration, button) in decorationButtons {
+            button.accessibilityIdentifier = decoration.rawValue
+            button.addTarget(self, action: #selector(decorationButtonPressed(_:)), for: .touchUpInside)
+        }
         materiaButton.addTarget(self, action: #selector(openMateria), for: .touchUpInside)
         closeButton.addTarget(self, action: #selector(close), for: .touchUpInside)
         categoryControl.addTarget(self, action: #selector(categoryChanged), for: .valueChanged)
         ScreenKit.setBackground(UIColor(red: 0.28, green: 0.31, blue: 0.53, alpha: 1), on: materiaButton)
         materiaSection.isHidden = true
         suppliesSection.isHidden = true
+        habitatSection.isHidden = true
         ScreenKit.installScrollable(contentStack, in: self)
         gameManager.onChange = { [weak self] in self?.refresh() }
         refresh()
@@ -150,6 +164,20 @@ final class ShopViewController: UIViewController {
             button.alpha = canBuy ? 1 : 0.45
             ScreenKit.setBackground(UIColor(red: 0.20, green: 0.25, blue: 0.34, alpha: 1), on: button)
         }
+
+        for decoration in HabitatDecoration.allCases {
+            guard let button = decorationButtons[decoration] else { continue }
+            let isOwned = gameManager.progression.ownedDecorations.contains(decoration)
+            let isEquipped = gameManager.progression.equippedDecoration == decoration
+            let title = isEquipped
+                ? "✅  \(decoration.emoji)  \(decoration.name)\nEQUIPADO · Toca para retirar"
+                : (isOwned ? "\(decoration.emoji)  \(decoration.name)\nAplicar al hábitat" : "\(decoration.emoji)  \(decoration.name) · \(decoration.price) Gil\nColecciona y personaliza tu refugio")
+            ScreenKit.setTitle(title, on: button)
+            let canUse = isOwned || gameManager.gil >= decoration.price
+            button.isEnabled = canUse
+            button.alpha = canUse ? 1 : 0.45
+            ScreenKit.setBackground(isEquipped ? UIColor(red: 0.15, green: 0.35, blue: 0.31, alpha: 1) : ScreenKit.panel, on: button)
+        }
     }
 
     @objc private func equipmentButtonPressed(_ sender: UIButton) {
@@ -198,6 +226,22 @@ final class ShopViewController: UIViewController {
         refresh()
     }
 
+    @objc private func decorationButtonPressed(_ sender: UIButton) {
+        guard let rawValue = sender.accessibilityIdentifier,
+              let decoration = HabitatDecoration(rawValue: rawValue) else { return }
+        if gameManager.progression.ownedDecorations.contains(decoration) {
+            _ = gameManager.equip(gameManager.progression.equippedDecoration == decoration ? nil : decoration)
+            messageLabel.text = gameManager.progression.equippedDecoration == decoration
+                ? "\(decoration.name) transforma tu refugio."
+                : "Decoración retirada."
+        } else if gameManager.buy(decoration) {
+            messageLabel.text = "\(decoration.name) añadido a tu colección. Tócalo para aplicarlo."
+        } else {
+            messageLabel.text = "Te faltan Gil para decorar el hábitat."
+        }
+        refresh()
+    }
+
     @objc private func openMateria() { onOpenMateria?() }
     @objc private func close() { onClose?() }
 
@@ -206,6 +250,7 @@ final class ShopViewController: UIViewController {
             self.equipmentSection.isHidden = self.categoryControl.selectedSegmentIndex != 0
             self.materiaSection.isHidden = self.categoryControl.selectedSegmentIndex != 1
             self.suppliesSection.isHidden = self.categoryControl.selectedSegmentIndex != 2
+            self.habitatSection.isHidden = self.categoryControl.selectedSegmentIndex != 3
             self.contentStack.layoutIfNeeded()
         }
     }

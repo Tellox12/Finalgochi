@@ -14,6 +14,11 @@ final class HomeViewController: UIViewController {
     private let sectionLabel: UILabel = {
         ScreenKit.label("MOOGLE GARDENS  /  HÁBITAT", size: 12, color: ScreenKit.mutedText, weight: .bold)
     }()
+    private let streakLabel: UILabel = {
+        let label = ScreenKit.label("", size: 11, color: ScreenKit.gold, weight: .bold)
+        label.textAlignment = .left
+        return label
+    }()
     private let gilLabel: UILabel = {
         let label = ScreenKit.label("", size: 15, color: ScreenKit.gold, weight: .bold)
         label.backgroundColor = ScreenKit.panel
@@ -154,7 +159,7 @@ final class HomeViewController: UIViewController {
         ScreenKit.stack([quickActionsTitleLabel, quickActionsRow], spacing: 12)
     }()
     private lazy var contentStack: UIStackView = {
-        ScreenKit.stack([headerStack, petCard, statsCard, quickActionsCard, expeditionsButton, questsCard], spacing: 15)
+        ScreenKit.stack([headerStack, streakLabel, petCard, statsCard, quickActionsCard, expeditionsButton, questsCard], spacing: 12)
     }()
 
     init(gameManager: GameManager) {
@@ -198,6 +203,18 @@ final class HomeViewController: UIViewController {
         gameManager.updateElapsedTime()
         refresh()
         updatePetAnimation(for: gameManager.pet?.mood ?? .calm)
+    }
+
+    func showMiniGameResult(success: Bool) {
+        careHintLabel.text = success
+            ? "🏆 ¡Victoria! Ganaste Gil y experiencia."
+            : "✨ Buena práctica: recibiste una pequeña recompensa."
+        careHintLabel.textColor = success ? ScreenKit.gold : ScreenKit.mutedText
+        UIAccessibility.post(notification: .announcement, argument: careHintLabel.text)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            guard let self, self.viewIfLoaded?.window != nil else { return }
+            self.refresh()
+        }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -251,7 +268,7 @@ final class HomeViewController: UIViewController {
             configuration.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4)
             configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
                 var outgoing = incoming
-                outgoing.font = .systemFont(ofSize: 18, weight: .bold)
+                outgoing.font = UIFontMetrics(forTextStyle: .headline).scaledFont(for: .systemFont(ofSize: 18, weight: .bold))
                 return outgoing
             }
             settingsButton.configuration = configuration
@@ -276,9 +293,11 @@ final class HomeViewController: UIViewController {
         guard let pet = gameManager.pet else { return }
         petSpriteView.kind = pet.kind
         petSpriteView.mood = pet.mood
+        petSpriteView.evolutionStage = EvolutionStage(level: pet.level)
         petSpriteView.equippedItems = gameManager.activeEquipment
         let phase = WorldPhase.current()
         habitatView.phase = phase
+        habitatView.decoration = gameManager.progression.equippedDecoration
         sectionLabel.text = "MOOGLE GARDENS  /  \(phase.title)"
         moodLabel.text = "  \(pet.mood.symbol)  \(pet.mood.title)  "
         careHintLabel.text = careHint(for: pet)
@@ -295,13 +314,15 @@ final class HomeViewController: UIViewController {
         accessoryLabel.text = "EQUIPO  ·  \(gameManager.equipmentSummary)"
         sleepStatusLabel.text = pet.isSleeping ? "✦  DESCANSANDO  ✦" : ""
         gilLabel.text = "  ◈  \(gameManager.gil) GIL  "
+        let streakUnit = gameManager.dailyStreak.days == 1 ? "DÍA" : "DÍAS"
+        streakLabel.text = "🔥 RACHA DE CUIDADO  ·  \(gameManager.dailyStreak.days) \(streakUnit)  ·  +\(gameManager.dailyStreak.lastReward) GIL HOY"
         levelProgressLabel.text = "NIVEL \(pet.level)  ·  \(pet.experience) / \(pet.nextLevelExperience) EXP"
         levelProgressView.setProgress(Float(pet.experience) / Float(max(1, pet.nextLevelExperience)), animated: true)
         let rationCount = gameManager.inventory[.ration, default: 0]
         ScreenKit.setTitle(rationCount > 0 ? "🍖\nRación ×\(rationCount)" : "🎒\nMochila", on: quickFeedButton)
         ScreenKit.setTitle(pet.isSleeping ? "☀️\nDespertar" : "🌙\nDormir", on: quickSleepButton)
         quickFeedButton.isEnabled = pet.hunger < 100
-        quickPlayButton.isEnabled = !pet.isSleeping && !pet.isGameOver && pet.energy >= 8
+        quickPlayButton.isEnabled = gameManager.canPlayMiniGame
         quickSleepButton.isEnabled = pet.isSleeping || (!pet.isGameOver && pet.energy < 100)
         for button in [quickFeedButton, quickPlayButton, quickSleepButton] {
             button.alpha = button.isEnabled ? 1 : 0.4
@@ -374,12 +395,13 @@ final class HomeViewController: UIViewController {
         configuration.contentInsets = NSDirectionalEdgeInsets(top: 9, leading: 6, bottom: 9, trailing: 6)
         configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
             var outgoing = incoming
-            outgoing.font = .systemFont(ofSize: 12, weight: .semibold)
+            outgoing.font = UIFontMetrics(forTextStyle: .caption1).scaledFont(for: .systemFont(ofSize: 12, weight: .semibold))
             return outgoing
         }
         configuration.baseBackgroundColor = tint
         button.configuration = configuration
         button.titleLabel?.textAlignment = .center
+        button.titleLabel?.adjustsFontForContentSizeCategory = true
         button.layer.shadowOpacity = 0.08
     }
 

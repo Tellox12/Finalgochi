@@ -2,6 +2,7 @@ import UIKit
 
 final class HabitatSceneView: UIView {
     var phase: WorldPhase = .night { didSet { setNeedsDisplay() } }
+    var decoration: HabitatDecoration? { didSet { setNeedsDisplay() } }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -41,6 +42,11 @@ final class HabitatSceneView: UIView {
         context.fillEllipse(in: CGRect(x: rect.width * 0.78 - 9, y: 15, width: 52, height: 52))
         context.setFillColor(orbColor.cgColor)
         context.fillEllipse(in: CGRect(x: rect.width * 0.78, y: 24, width: 34, height: 34))
+
+        if let decoration {
+            let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 24), .shadow: NSShadow()]
+            (decoration.emoji as NSString).draw(at: CGPoint(x: 18, y: rect.height * 0.70), withAttributes: attributes)
+        }
 
         context.setFillColor(UIColor(red: 0.12, green: 0.23, blue: 0.34, alpha: 0.64).cgColor)
         let farHill = CGMutablePath()

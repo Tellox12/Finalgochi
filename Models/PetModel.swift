@@ -1,6 +1,6 @@
 import Foundation
 
-enum PetKind: String, CaseIterable, Codable {
+enum PetKind: String, CaseIterable, Codable, Hashable {
     case moogle, chocobo, cactilio
 
     var displayName: String {

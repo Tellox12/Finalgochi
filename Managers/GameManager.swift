@@ -14,6 +14,8 @@ final class GameManager {
         static let magicPoints = "finalgochi.magicPoints.v1"
         static let magicUpdatedAt = "finalgochi.magicUpdatedAt.v1"
         static let activeExpedition = "finalgochi.activeExpedition.v1"
+        static let progression = "finalgochi.progression.v1"
+        static let dailyStreak = "finalgochi.dailyStreak.v1"
     }
 
     private let defaults: UserDefaults
@@ -28,10 +30,14 @@ final class GameManager {
     private(set) var ownedMateria: Set<Materia>
     private(set) var equippedMateria: [Materia]
     private(set) var magicPoints: Int
+    private(set) var progression: ProgressionState
+    private(set) var dailyStreak: DailyStreak
     private var lastMagicUpdatedAt: Date
 
     static let maximumMagicPoints = 100
     static let maximumEquippedMateria = 2
+    static let maximumGil = 999_999
+    static let maximumSaveFileSize = 2_000_000
 
     var equippedAccessory: StoreItem? {
         EquipmentSlot.allCases.compactMap { equippedItems[$0] }.first
@@ -46,15 +52,22 @@ final class GameManager {
         return items.isEmpty ? "Sin equipo" : items.map { "\($0.emoji) \($0.name)" }.joined(separator: "  ·  ")
     }
 
+    var canPlayMiniGame: Bool {
+        guard let pet else { return false }
+        return !pet.isSleeping && !pet.isGameOver && pet.energy >= 8
+    }
+
     var onChange: (() -> Void)?
     var onGameOver: (() -> Void)?
     var onQuestReward: ((Int) -> Void)?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        gil = defaults.object(forKey: Key.gil) as? Int ?? 50
+        gil = min(Self.maximumGil, max(0, defaults.object(forKey: Key.gil) as? Int ?? 50))
         dailyQuests = Self.decode(DailyQuestBoard.self, from: defaults.data(forKey: Key.quests)) ?? DailyQuestBoard()
         activeExpedition = Self.decode(ActiveExpedition.self, from: defaults.data(forKey: Key.activeExpedition))
+        progression = Self.normalizedProgression(Self.decode(ProgressionState.self, from: defaults.data(forKey: Key.progression)) ?? ProgressionState())
+        dailyStreak = Self.decode(DailyStreak.self, from: defaults.data(forKey: Key.dailyStreak)) ?? DailyStreak()
 
         let savedAccessories = Self.decode([StoreItem].self, from: defaults.data(forKey: Key.accessories)) ?? []
         let loadedOwnedItems = Set(savedAccessories)
@@ -81,7 +94,7 @@ final class GameManager {
         lastMagicUpdatedAt = defaults.object(forKey: Key.magicUpdatedAt) as? Date ?? Date()
 
         if let savedInventory = Self.decode([ConsumableItem: Int].self, from: defaults.data(forKey: Key.inventory)) {
-            inventory = savedInventory.filter { $0.value > 0 }
+            inventory = savedInventory.filter { $0.value > 0 }.mapValues { min(999, $0) }
         } else {
             // Initial stock also gives existing prototype saves a one-time inventory migration.
             inventory = [.ration: 2, .potion: 1]
@@ -89,6 +102,8 @@ final class GameManager {
 
         if let savedPet = Self.decode(PetModel.self, from: defaults.data(forKey: Key.pet)) {
             pet = savedPet
+            progression.discoveredPets.insert(savedPet.kind)
+            _ = claimDailyLogin()
             updateElapsedTime()
             if pet?.isGameOver != true { startTimer() }
         }
@@ -103,6 +118,9 @@ final class GameManager {
 
     func createPet(_ kind: PetKind) {
         pet = PetModel(kind: kind)
+        progression.discoveredPets.insert(kind)
+        _ = claimDailyLogin()
+        unlock(.firstFriend)
         persist()
         startTimer()
         onChange?()
@@ -127,6 +145,7 @@ final class GameManager {
         inventory = [.ration: 2, .potion: 1]
         dailyQuests = DailyQuestBoard()
         activeExpedition = nil
+        progression = ProgressionState()
         ownedMateria = [.cure]
         equippedMateria = [.cure]
         magicPoints = Self.maximumMagicPoints
@@ -167,10 +186,12 @@ final class GameManager {
         guard var current = pet, !current.isGameOver else { return false }
 
         let route = expedition.route
+        progression.discoveredPets.insert(route.discoveredPet)
         current.addExperience(Int((Double(route.experienceReward) * careModifiers.experienceGainMultiplier).rounded()))
         pet = current
-        gil += route.gilReward
-        inventory[route.loot, default: 0] += 1
+        progression.completedExpeditions += 1
+        awardGil(route.gilReward)
+        inventory[route.loot] = min(999, inventory[route.loot, default: 0] + 1)
         activeExpedition = nil
         recordQuest(.expedition)
         persist()
@@ -203,18 +224,22 @@ final class GameManager {
         commit(current)
     }
 
-    func playMiniGame(success: Bool) {
-        guard var current = pet else { return }
+    @discardableResult
+    func playMiniGame(success: Bool) -> Bool {
+        updateElapsedTime()
+        guard var current = pet, !current.isSleeping, !current.isGameOver, current.energy > 0 else { return false }
         let wasGameOver = current.isGameOver
         current.play()
         let baseExperience = success ? 20 : 5
         current.addExperience(Int((Double(baseExperience) * careModifiers.experienceGainMultiplier).rounded()))
         pet = current
-        gil += success ? 25 : 5
+        if success { progression.wonMiniGames += 1 }
+        awardGil(success ? 25 : 5)
         recordQuest(.play)
         persist()
         onChange?()
         notifyGameOverIfNeeded(wasGameOver: wasGameOver, current: current)
+        return true
     }
 
     func use(_ item: ConsumableItem) -> Bool {
@@ -249,6 +274,7 @@ final class GameManager {
         guard gil >= item.price, !ownedItems.contains(item) else { return false }
         gil -= item.price
         ownedItems.insert(item)
+        unlock(.fashionista)
         persist()
         onChange?()
         return true
@@ -256,10 +282,11 @@ final class GameManager {
 
     func buy(_ item: ConsumableItem, quantity: Int = 1) -> Bool {
         guard quantity > 0 else { return false }
-        let totalPrice = item.price * quantity
+        let (totalPrice, overflow) = item.price.multipliedReportingOverflow(by: quantity)
+        guard !overflow else { return false }
         guard gil >= totalPrice else { return false }
         gil -= totalPrice
-        inventory[item, default: 0] += quantity
+        inventory[item] = min(999, inventory[item, default: 0] + quantity)
         persist()
         onChange?()
         return true
@@ -269,6 +296,7 @@ final class GameManager {
         guard !ownedMateria.contains(materia), gil >= materia.price else { return false }
         gil -= materia.price
         ownedMateria.insert(materia)
+        if ownedMateria.count >= 3 { unlock(.materiaCollector) }
         persist()
         onChange?()
         return true
@@ -352,9 +380,105 @@ final class GameManager {
     }
 
     func addGil(_ amount: Int) {
-        gil = max(0, gil + amount)
+        awardGil(amount)
         persist()
         onChange?()
+    }
+
+    @discardableResult
+    func claimDailyLogin(at date: Date = Date()) -> Int? {
+        guard pet != nil else { return nil }
+        var updatedStreak = dailyStreak
+        guard let reward = updatedStreak.claim(at: date) else { return nil }
+        dailyStreak = updatedStreak
+        awardGil(reward)
+        persist()
+        onChange?()
+        return reward
+    }
+
+    @discardableResult
+    func buy(_ decoration: HabitatDecoration) -> Bool {
+        guard !progression.ownedDecorations.contains(decoration), gil >= decoration.price else { return false }
+        gil -= decoration.price
+        progression.ownedDecorations.insert(decoration)
+        persist()
+        onChange?()
+        return true
+    }
+
+    @discardableResult
+    func equip(_ decoration: HabitatDecoration?) -> Bool {
+        if let decoration, !progression.ownedDecorations.contains(decoration) { return false }
+        progression.equippedDecoration = decoration
+        persist()
+        onChange?()
+        return true
+    }
+
+    func exportSave() -> Data? {
+        guard pet != nil else { return nil }
+        let keys = [Key.pet, Key.gil, Key.accessories, Key.equippedAccessory, Key.equipment,
+                    Key.inventory, Key.quests, Key.materia, Key.equippedMateria, Key.magicPoints,
+                    Key.magicUpdatedAt, Key.activeExpedition, Key.progression, Key.dailyStreak]
+        var values: [String: Data] = [:]
+        for key in keys {
+            guard let value = defaults.object(forKey: key),
+                  let data = try? PropertyListSerialization.data(fromPropertyList: value, format: .binary, options: 0) else { continue }
+            values[key] = data
+        }
+        return try? JSONEncoder().encode(GameSaveArchive(values: values))
+    }
+
+    @discardableResult
+    func importSave(_ data: Data) -> Bool {
+        guard data.count <= Self.maximumSaveFileSize else { return false }
+        guard let archive = try? JSONDecoder().decode(GameSaveArchive.self, from: data), archive.formatVersion == 2 else { return false }
+        let allowedKeys: Set<String> = [Key.pet, Key.gil, Key.accessories, Key.equippedAccessory, Key.equipment,
+                                        Key.inventory, Key.quests, Key.materia, Key.equippedMateria, Key.magicPoints,
+                                        Key.magicUpdatedAt, Key.activeExpedition, Key.progression, Key.dailyStreak]
+        guard archive.values[Key.pet] != nil,
+              !archive.values.isEmpty,
+              Set(archive.values.keys).isSubset(of: allowedKeys) else { return false }
+        var decodedValues: [String: Any] = [:]
+        for (key, encodedValue) in archive.values {
+            guard let value = try? PropertyListSerialization.propertyList(from: encodedValue, options: [], format: nil) else { return false }
+            decodedValues[key] = value
+        }
+        guard let petData = decodedValues[Key.pet] as? Data,
+              Self.decode(PetModel.self, from: petData) != nil,
+              let savedGil = decodedValues[Key.gil] as? Int else { return false }
+        for key in allowedKeys where !decodedValues.keys.contains(key) {
+            defaults.removeObject(forKey: key)
+        }
+        for (key, value) in decodedValues { defaults.set(value, forKey: key) }
+
+        timer?.invalidate()
+        pet = Self.decode(PetModel.self, from: defaults.data(forKey: Key.pet))
+        gil = min(Self.maximumGil, max(0, savedGil))
+        ownedItems = Set(Self.decode([StoreItem].self, from: defaults.data(forKey: Key.accessories)) ?? [])
+        let importedEquipment = Self.decode([EquipmentSlot: StoreItem].self, from: defaults.data(forKey: Key.equipment)) ?? [:]
+        equippedItems = importedEquipment.reduce(into: [EquipmentSlot: StoreItem]()) { result, entry in
+            guard entry.key == entry.value.slot, ownedItems.contains(entry.value) else { return }
+            result[entry.key] = entry.value
+        }
+        inventory = (Self.decode([ConsumableItem: Int].self, from: defaults.data(forKey: Key.inventory)) ?? [:])
+            .filter { $0.value > 0 }
+            .mapValues { min(999, $0) }
+        dailyQuests = Self.decode(DailyQuestBoard.self, from: defaults.data(forKey: Key.quests)) ?? DailyQuestBoard()
+        activeExpedition = Self.decode(ActiveExpedition.self, from: defaults.data(forKey: Key.activeExpedition))
+        ownedMateria = Set(Self.decode([Materia].self, from: defaults.data(forKey: Key.materia)) ?? [.cure])
+        equippedMateria = Array((Self.decode([Materia].self, from: defaults.data(forKey: Key.equippedMateria)) ?? [.cure]).filter { ownedMateria.contains($0) }.prefix(Self.maximumEquippedMateria))
+        magicPoints = min(Self.maximumMagicPoints, max(0, defaults.object(forKey: Key.magicPoints) as? Int ?? Self.maximumMagicPoints))
+        lastMagicUpdatedAt = defaults.object(forKey: Key.magicUpdatedAt) as? Date ?? Date()
+        progression = Self.normalizedProgression(Self.decode(ProgressionState.self, from: defaults.data(forKey: Key.progression)) ?? ProgressionState())
+        dailyStreak = Self.decode(DailyStreak.self, from: defaults.data(forKey: Key.dailyStreak)) ?? DailyStreak()
+        if pet != nil {
+            updateElapsedTime()
+            if pet?.isGameOver != true { startTimer() }
+        }
+        onChange?()
+        return true
     }
 
     func updateElapsedTime(now: Date = Date()) {
@@ -384,6 +508,11 @@ final class GameManager {
         onGameOver?()
     }
 
+    private func unlock(_ achievement: GameAchievement) {
+        guard progression.unlockedAchievements.insert(achievement).inserted else { return }
+        awardGil(achievement.reward)
+    }
+
     private func startTimer() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
@@ -392,6 +521,7 @@ final class GameManager {
     }
 
     private func persist() {
+        evaluateAchievements()
         if let pet, let data = try? JSONEncoder().encode(pet) {
             defaults.set(data, forKey: Key.pet)
         }
@@ -426,6 +556,27 @@ final class GameManager {
         }
         defaults.set(magicPoints, forKey: Key.magicPoints)
         defaults.set(lastMagicUpdatedAt, forKey: Key.magicUpdatedAt)
+        if let data = try? JSONEncoder().encode(progression) { defaults.set(data, forKey: Key.progression) }
+        if let data = try? JSONEncoder().encode(dailyStreak) { defaults.set(data, forKey: Key.dailyStreak) }
+    }
+
+    private func evaluateAchievements() {
+        if !progression.discoveredPets.isEmpty { unlock(.firstFriend) }
+        if !ownedItems.isEmpty { unlock(.fashionista) }
+        if ownedMateria.count >= 3 { unlock(.materiaCollector) }
+        if (pet?.level ?? 0) >= 5 { unlock(.levelFive) }
+        if progression.completedExpeditions >= 5 { unlock(.expeditionVeteran) }
+        if progression.wonMiniGames >= 10 { unlock(.reflexMaster) }
+        if progression.discoveredPets.count >= PetKind.allCases.count { unlock(.bestiary) }
+    }
+
+    private func awardGil(_ amount: Int) {
+        let (sum, overflow) = gil.addingReportingOverflow(amount)
+        if overflow {
+            gil = amount >= 0 ? Self.maximumGil : 0
+        } else {
+            gil = min(Self.maximumGil, max(0, sum))
+        }
     }
 
     private var careModifiers: PetCareModifiers {
@@ -448,7 +599,7 @@ final class GameManager {
     private func recordQuest(_ kind: DailyQuestKind) {
         let reward = dailyQuests.record(kind)
         if reward > 0 {
-            gil += reward
+            awardGil(reward)
             onQuestReward?(reward)
         }
         persist()
@@ -463,5 +614,15 @@ final class GameManager {
     private static func decode<Value: Decodable>(_ type: Value.Type, from data: Data?) -> Value? {
         guard let data else { return nil }
         return try? JSONDecoder().decode(type, from: data)
+    }
+
+    private static func normalizedProgression(_ source: ProgressionState) -> ProgressionState {
+        var state = source
+        state.completedExpeditions = min(999_999, max(0, state.completedExpeditions))
+        state.wonMiniGames = min(999_999, max(0, state.wonMiniGames))
+        if let decoration = state.equippedDecoration, !state.ownedDecorations.contains(decoration) {
+            state.equippedDecoration = nil
+        }
+        return state
     }
 }

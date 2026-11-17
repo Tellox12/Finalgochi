@@ -25,7 +25,8 @@ enum ScreenKit {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.text = text
         label.textColor = color
-        label.font = .systemFont(ofSize: size, weight: weight)
+        label.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: .systemFont(ofSize: size, weight: weight))
+        label.adjustsFontForContentSizeCategory = true
         label.textAlignment = .center
         label.numberOfLines = 0
         return label
@@ -42,11 +43,12 @@ enum ScreenKit {
         configuration.contentInsets = NSDirectionalEdgeInsets(top: 14, leading: 18, bottom: 14, trailing: 18)
         configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
             var outgoing = incoming
-            outgoing.font = .systemFont(ofSize: 18, weight: .semibold)
+            outgoing.font = UIFontMetrics(forTextStyle: .headline).scaledFont(for: .systemFont(ofSize: 18, weight: .semibold))
             return outgoing
         }
         button.configuration = configuration
         button.titleLabel?.numberOfLines = 0
+        button.titleLabel?.adjustsFontForContentSizeCategory = true
         button.titleLabel?.lineBreakMode = .byWordWrapping
         button.titleLabel?.textAlignment = .center
         button.layer.cornerRadius = 14
