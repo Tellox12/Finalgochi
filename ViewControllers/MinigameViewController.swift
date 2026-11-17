@@ -10,6 +10,9 @@ final class MinigameViewController: UIViewController {
         return button
     }()
     private let startButton: UIButton = { ScreenKit.button("Comenzar") }()
+    private lazy var contentStack: UIStackView = {
+        ScreenKit.stack([titleLabel, instructionLabel, targetButton, startButton], spacing: 18)
+    }()
     private var isReady = false
     private var roundTimer: Timer?
 
@@ -18,7 +21,7 @@ final class MinigameViewController: UIViewController {
         ScreenKit.configure(self, title: "Minijuego")
         startButton.addTarget(self, action: #selector(startRound), for: .touchUpInside)
         targetButton.addTarget(self, action: #selector(tapTarget), for: .touchUpInside)
-        ScreenKit.install(ScreenKit.stack([titleLabel, instructionLabel, targetButton, startButton], spacing: 18), in: self)
+        ScreenKit.install(contentStack, in: self)
     }
 
     deinit { roundTimer?.invalidate() }

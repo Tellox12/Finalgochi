@@ -1,6 +1,7 @@
 import UIKit
 
 final class ActionMenuViewController: UIViewController {
+    private let gameManager: GameManager
     var onFeed: (() -> Void)?
     var onPlay: (() -> Void)?
     var onSleep: (() -> Void)?
@@ -12,6 +13,16 @@ final class ActionMenuViewController: UIViewController {
     private let sleepButton: UIButton = { ScreenKit.button("🛌  Dormir") }()
     private let statusButton: UIButton = { ScreenKit.button("📊  Estado") }()
     private let closeButton: UIButton = { ScreenKit.button("Volver") }()
+    private lazy var contentStack: UIStackView = {
+        ScreenKit.stack([titleLabel, feedButton, playButton, sleepButton, statusButton, closeButton])
+    }()
+
+    init(gameManager: GameManager) {
+        self.gameManager = gameManager
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) no está disponible") }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -21,7 +32,11 @@ final class ActionMenuViewController: UIViewController {
         sleepButton.addTarget(self, action: #selector(sleep), for: .touchUpInside)
         statusButton.addTarget(self, action: #selector(status), for: .touchUpInside)
         closeButton.addTarget(self, action: #selector(close), for: .touchUpInside)
-        ScreenKit.install(ScreenKit.stack([titleLabel, feedButton, playButton, sleepButton, statusButton, closeButton]), in: self)
+        let isSleeping = gameManager.pet?.isSleeping == true
+        sleepButton.setTitle(isSleeping ? "☀️  Despertar" : "🛌  Dormir", for: .normal)
+        sleepButton.isEnabled = isSleeping || (gameManager.pet?.energy ?? 100) < 100
+        sleepButton.alpha = sleepButton.isEnabled ? 1 : 0.45
+        ScreenKit.install(contentStack, in: self)
     }
 
     @objc private func feed() { onFeed?() }

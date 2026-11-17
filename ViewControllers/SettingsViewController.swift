@@ -6,7 +6,16 @@ final class SettingsViewController: UIViewController {
     private let soundSwitch: UISwitch = { let control = UISwitch(); control.translatesAutoresizingMaskIntoConstraints = false; control.isOn = UserDefaults.standard.object(forKey: "finalgochi.soundEnabled") as? Bool ?? true; return control }()
     private let hapticsSwitch: UISwitch = { let control = UISwitch(); control.translatesAutoresizingMaskIntoConstraints = false; control.isOn = UserDefaults.standard.object(forKey: "finalgochi.hapticsEnabled") as? Bool ?? true; return control }()
     private let notificationsSwitch: UISwitch = { let control = UISwitch(); control.translatesAutoresizingMaskIntoConstraints = false; control.isOn = UserDefaults.standard.bool(forKey: "finalgochi.notificationsEnabled"); return control }()
+    private let soundLabel: UILabel = { let label = ScreenKit.label("Música", size: 18); label.textAlignment = .left; return label }()
+    private let hapticsLabel: UILabel = { let label = ScreenKit.label("Hápticos", size: 18); label.textAlignment = .left; return label }()
+    private let notificationsLabel: UILabel = { let label = ScreenKit.label("Notificaciones", size: 18); label.textAlignment = .left; return label }()
     private let closeButton: UIButton = { ScreenKit.button("Guardar y volver") }()
+    private lazy var soundRow: UIStackView = { ScreenKit.horizontalStack([soundLabel, soundSwitch]) }()
+    private lazy var hapticsRow: UIStackView = { ScreenKit.horizontalStack([hapticsLabel, hapticsSwitch]) }()
+    private lazy var notificationsRow: UIStackView = { ScreenKit.horizontalStack([notificationsLabel, notificationsSwitch]) }()
+    private lazy var contentStack: UIStackView = {
+        ScreenKit.stack([titleLabel, soundRow, hapticsRow, notificationsRow, closeButton], spacing: 22)
+    }()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -15,20 +24,7 @@ final class SettingsViewController: UIViewController {
         soundSwitch.addTarget(self, action: #selector(soundChanged), for: .valueChanged)
         hapticsSwitch.addTarget(self, action: #selector(hapticsChanged), for: .valueChanged)
         notificationsSwitch.addTarget(self, action: #selector(notificationsChanged), for: .valueChanged)
-        let stack = ScreenKit.stack([titleLabel, row("Música", control: soundSwitch), row("Hápticos", control: hapticsSwitch), row("Notificaciones", control: notificationsSwitch), closeButton], spacing: 22)
-        ScreenKit.install(stack, in: self)
-    }
-
-    private func row(_ title: String, control: UISwitch) -> UIStackView {
-        let label = ScreenKit.label(title, size: 18)
-        label.textAlignment = .left
-        let row = UIStackView(arrangedSubviews: [label, control])
-        row.translatesAutoresizingMaskIntoConstraints = false
-        row.axis = .horizontal
-        row.spacing = 12
-        row.distribution = .equalSpacing
-        row.alignment = .center
-        return row
+        ScreenKit.install(contentStack, in: self)
     }
 
     @objc private func close() { onClose?() }

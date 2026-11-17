@@ -45,10 +45,18 @@ final class AppCoordinator: Coordinator {
     }
 
     private func showActionMenu() {
-        let screen = ActionMenuViewController()
+        let screen = ActionMenuViewController(gameManager: gameManager)
         screen.onFeed = { [weak self] in self?.showInventory() }
         screen.onPlay = { [weak self] in self?.showMinigame() }
-        screen.onSleep = { [weak self] in self?.gameManager.sleep(); self?.showHome() }
+        screen.onSleep = { [weak self] in
+            guard let self else { return }
+            if self.gameManager.pet?.isSleeping == true {
+                self.gameManager.wake()
+            } else {
+                self.gameManager.sleep()
+            }
+            self.showHome()
+        }
         screen.onShowStatus = { [weak self] in self?.showCharacterSheet() }
         screen.onClose = { [weak self] in self?.showHome() }
         navigationController.pushViewController(screen, animated: true)
