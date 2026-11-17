@@ -6,7 +6,25 @@ final class ShopViewController: UIViewController {
     var onOpenMateria: (() -> Void)?
 
     private let titleLabel: UILabel = { ScreenKit.label("Bazar del Cristal", size: 27, color: ScreenKit.accent, weight: .bold) }()
-    private let gilLabel: UILabel = { ScreenKit.label("", size: 17, color: ScreenKit.gold, weight: .bold) }()
+    private let gilLabel: UILabel = {
+        let label = ScreenKit.label("", size: 15, color: ScreenKit.gold, weight: .bold)
+        label.backgroundColor = ScreenKit.panel
+        label.layer.cornerRadius = 14
+        label.layer.masksToBounds = true
+        label.layer.borderWidth = 1
+        label.layer.borderColor = ScreenKit.gold.withAlphaComponent(0.24).cgColor
+        label.font = .monospacedDigitSystemFont(ofSize: 15, weight: .bold)
+        return label
+    }()
+    private let categoryControl: UISegmentedControl = {
+        let control = UISegmentedControl(items: ["Equipo", "Materia", "Objetos"])
+        control.translatesAutoresizingMaskIntoConstraints = false
+        control.selectedSegmentIndex = 0
+        control.selectedSegmentTintColor = ScreenKit.accent.withAlphaComponent(0.85)
+        control.setTitleTextAttributes([.foregroundColor: UIColor.white], for: .normal)
+        control.setTitleTextAttributes([.foregroundColor: ScreenKit.background, .font: UIFont.systemFont(ofSize: 13, weight: .bold)], for: .selected)
+        return control
+    }()
     private let equipmentTitleLabel: UILabel = { ScreenKit.label("🧥  EQUIPO Y VESTIMENTA", size: 12, color: ScreenKit.gold, weight: .bold) }()
     private let materiaTitleLabel: UILabel = { ScreenKit.label("🔮  MATERIAS", size: 12, color: ScreenKit.gold, weight: .bold) }()
     private let suppliesTitleLabel: UILabel = { ScreenKit.label("⚗️  SUMINISTROS", size: 12, color: ScreenKit.gold, weight: .bold) }()
@@ -24,17 +42,24 @@ final class ShopViewController: UIViewController {
         Dictionary(uniqueKeysWithValues: ConsumableItem.allCases.map { ($0, ScreenKit.button("")) })
     }()
 
-    private lazy var contentStack: UIStackView = {
-        var views: [UIView] = [titleLabel, gilLabel, equipmentTitleLabel]
+    private lazy var equipmentSection: UIStackView = {
+        var views: [UIView] = [equipmentTitleLabel]
         views.append(contentsOf: StoreItem.allCases.compactMap { equipmentButtons[$0] })
-        views.append(materiaTitleLabel)
+        return ScreenKit.stack(views, spacing: 10)
+    }()
+    private lazy var materiaSection: UIStackView = {
+        var views: [UIView] = [materiaTitleLabel]
         views.append(contentsOf: Materia.allCases.compactMap { materiaButtons[$0] })
         views.append(materiaButton)
-        views.append(suppliesTitleLabel)
+        return ScreenKit.stack(views, spacing: 10)
+    }()
+    private lazy var suppliesSection: UIStackView = {
+        var views: [UIView] = [suppliesTitleLabel]
         views.append(contentsOf: ConsumableItem.allCases.compactMap { consumableButtons[$0] })
-        views.append(messageLabel)
-        views.append(closeButton)
-        return ScreenKit.stack(views, spacing: 12)
+        return ScreenKit.stack(views, spacing: 10)
+    }()
+    private lazy var contentStack: UIStackView = {
+        ScreenKit.stack([titleLabel, gilLabel, categoryControl, equipmentSection, materiaSection, suppliesSection, messageLabel, closeButton], spacing: 14)
     }()
 
     init(gameManager: GameManager) {
@@ -61,14 +86,23 @@ final class ShopViewController: UIViewController {
         }
         materiaButton.addTarget(self, action: #selector(openMateria), for: .touchUpInside)
         closeButton.addTarget(self, action: #selector(close), for: .touchUpInside)
+        categoryControl.addTarget(self, action: #selector(categoryChanged), for: .valueChanged)
         ScreenKit.setBackground(UIColor(red: 0.28, green: 0.31, blue: 0.53, alpha: 1), on: materiaButton)
+        materiaSection.isHidden = true
+        suppliesSection.isHidden = true
         ScreenKit.installScrollable(contentStack, in: self)
         gameManager.onChange = { [weak self] in self?.refresh() }
         refresh()
     }
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        gameManager.onChange = { [weak self] in self?.refresh() }
+        refresh()
+    }
+
     private func refresh() {
-        gilLabel.text = "◈  \(gameManager.gil) GIL DISPONIBLES"
+        gilLabel.text = "  ◈  \(gameManager.gil) GIL DISPONIBLES  "
         for item in StoreItem.allCases {
             guard let button = equipmentButtons[item] else { continue }
             let isOwned = gameManager.ownedItems.contains(item)
@@ -85,6 +119,7 @@ final class ShopViewController: UIViewController {
             let canUse = isOwned || gameManager.gil >= item.price
             button.isEnabled = canUse
             button.alpha = canUse ? 1 : 0.45
+            ScreenKit.setBackground(isEquipped ? UIColor(red: 0.15, green: 0.35, blue: 0.31, alpha: 1) : (isOwned ? UIColor(red: 0.17, green: 0.27, blue: 0.33, alpha: 1) : ScreenKit.panel), on: button)
         }
 
         for materia in Materia.allCases {
@@ -103,6 +138,7 @@ final class ShopViewController: UIViewController {
             let canUse = isOwned || gameManager.gil >= materia.price
             button.isEnabled = canUse
             button.alpha = canUse ? 1 : 0.45
+            ScreenKit.setBackground(isEquipped ? UIColor(red: 0.15, green: 0.35, blue: 0.31, alpha: 1) : (isOwned ? UIColor(red: 0.17, green: 0.27, blue: 0.33, alpha: 1) : ScreenKit.panel), on: button)
         }
 
         for item in ConsumableItem.allCases {
@@ -112,6 +148,7 @@ final class ShopViewController: UIViewController {
             let canBuy = gameManager.gil >= item.price
             button.isEnabled = canBuy
             button.alpha = canBuy ? 1 : 0.45
+            ScreenKit.setBackground(UIColor(red: 0.20, green: 0.25, blue: 0.34, alpha: 1), on: button)
         }
     }
 
@@ -163,4 +200,13 @@ final class ShopViewController: UIViewController {
 
     @objc private func openMateria() { onOpenMateria?() }
     @objc private func close() { onClose?() }
+
+    @objc private func categoryChanged() {
+        UIView.animate(withDuration: 0.18) {
+            self.equipmentSection.isHidden = self.categoryControl.selectedSegmentIndex != 0
+            self.materiaSection.isHidden = self.categoryControl.selectedSegmentIndex != 1
+            self.suppliesSection.isHidden = self.categoryControl.selectedSegmentIndex != 2
+            self.contentStack.layoutIfNeeded()
+        }
+    }
 }

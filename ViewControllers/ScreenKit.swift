@@ -13,6 +13,7 @@ enum ScreenKit {
         card.translatesAutoresizingMaskIntoConstraints = false
         card.backgroundColor = panel
         card.layer.cornerRadius = 22
+        card.layer.cornerCurve = .continuous
         card.layer.borderWidth = 1
         card.layer.borderColor = UIColor.white.withAlphaComponent(0.08).cgColor
         card.layer.masksToBounds = true
@@ -49,6 +50,13 @@ enum ScreenKit {
         button.titleLabel?.lineBreakMode = .byWordWrapping
         button.titleLabel?.textAlignment = .center
         button.layer.cornerRadius = 14
+        button.layer.cornerCurve = .continuous
+        button.layer.borderWidth = 1
+        button.layer.borderColor = UIColor.white.withAlphaComponent(0.08).cgColor
+        button.layer.shadowColor = UIColor.black.cgColor
+        button.layer.shadowOpacity = 0.14
+        button.layer.shadowOffset = CGSize(width: 0, height: 3)
+        button.layer.shadowRadius = 8
         button.addTarget(FeedbackManager.shared, action: #selector(FeedbackManager.buttonWasTapped(_:)), for: .touchUpInside)
         return button
     }

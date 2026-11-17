@@ -118,6 +118,12 @@ final class CharacterSheetViewController: UIViewController {
         gameManager.onChange = { [weak self] in self?.refresh() }
     }
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        gameManager.onChange = { [weak self] in self?.refresh() }
+        refresh()
+    }
+
     private func refresh() {
         guard let pet = gameManager.pet else { return }
         spriteView.kind = pet.kind

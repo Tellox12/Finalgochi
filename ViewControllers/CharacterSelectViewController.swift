@@ -2,6 +2,7 @@ import UIKit
 
 final class CharacterSelectViewController: UIViewController {
     var onCharacterSelected: ((PetKind) -> Void)?
+    private var didAnimateEntrance = false
 
     private let eyebrowLabel: UILabel = {
         ScreenKit.label("CRÓNICAS DEL CRISTAL  /  SELECCIÓN", size: 11, color: ScreenKit.gold, weight: .bold)
@@ -34,12 +35,35 @@ final class CharacterSelectViewController: UIViewController {
         ScreenKit.installScrollable(contentStack, in: self)
     }
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard !didAnimateEntrance, !UIAccessibility.isReduceMotionEnabled else { return }
+        didAnimateEntrance = true
+        let cards = [moogleButton, chocoboButton, cactilioButton]
+        for (index, card) in cards.enumerated() {
+            card.alpha = 0
+            card.transform = CGAffineTransform(translationX: 0, y: 18)
+            UIView.animate(withDuration: 0.42, delay: Double(index) * 0.10, options: [.curveEaseOut], animations: {
+                card.alpha = 1
+                card.transform = .identity
+            }, completion: nil)
+        }
+    }
+
     @objc private func selectMoogle() { onCharacterSelected?(.moogle) }
     @objc private func selectChocobo() { onCharacterSelected?(.chocobo) }
     @objc private func selectCactilio() { onCharacterSelected?(.cactilio) }
 }
 
 private final class CharacterSelectionCard: UIButton {
+    private let portraitAura: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.layer.cornerRadius = 64
+        view.layer.borderWidth = 1
+        view.backgroundColor = UIColor.white.withAlphaComponent(0.05)
+        return view
+    }()
     private let spriteView: PixelPetSpriteView = {
         let view = PixelPetSpriteView()
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -64,7 +88,7 @@ private final class CharacterSelectionCard: UIButton {
         ScreenKit.stack([nameLabel, detailLabel, callToActionLabel], spacing: 7)
     }()
     private lazy var contentStack: UIStackView = {
-        let stack = ScreenKit.horizontalStack([spriteView, textStack])
+        let stack = ScreenKit.horizontalStack([portraitAura, textStack])
         stack.distribution = .fill
         stack.alignment = .center
         return stack
@@ -78,23 +102,31 @@ private final class CharacterSelectionCard: UIButton {
         self.configuration = configuration
         backgroundColor = tint.withAlphaComponent(0.25)
         layer.cornerRadius = 20
+        layer.cornerCurve = .continuous
         layer.borderWidth = 1
         layer.borderColor = tint.withAlphaComponent(0.8).cgColor
         layer.masksToBounds = true
+        portraitAura.layer.borderColor = tint.withAlphaComponent(0.52).cgColor
+        portraitAura.backgroundColor = tint.withAlphaComponent(0.26)
 
         spriteView.kind = kind
         spriteView.showsMoodBadge = false
         nameLabel.text = kind.displayName.uppercased()
         detailLabel.text = detail
+        portraitAura.addSubview(spriteView)
         addSubview(contentStack)
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: 126),
-            contentStack.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+            heightAnchor.constraint(equalToConstant: 150),
+            contentStack.topAnchor.constraint(equalTo: topAnchor, constant: 11),
             contentStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             contentStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            contentStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
-            spriteView.widthAnchor.constraint(equalToConstant: 100),
-            spriteView.heightAnchor.constraint(equalToConstant: 100),
+            contentStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -11),
+            portraitAura.widthAnchor.constraint(equalToConstant: 128),
+            portraitAura.heightAnchor.constraint(equalToConstant: 128),
+            spriteView.centerXAnchor.constraint(equalTo: portraitAura.centerXAnchor),
+            spriteView.centerYAnchor.constraint(equalTo: portraitAura.centerYAnchor),
+            spriteView.widthAnchor.constraint(equalToConstant: 116),
+            spriteView.heightAnchor.constraint(equalToConstant: 116),
             textStack.trailingAnchor.constraint(equalTo: contentStack.trailingAnchor)
         ])
         accessibilityLabel = "\(kind.displayName), \(detail)"
@@ -105,6 +137,10 @@ private final class CharacterSelectionCard: UIButton {
     required init?(coder: NSCoder) { fatalError("init(coder:) no está disponible") }
 
     override var isHighlighted: Bool {
-        didSet { alpha = isHighlighted ? 0.72 : 1 }
+        didSet {
+            UIView.animate(withDuration: 0.12) {
+                self.transform = self.isHighlighted ? CGAffineTransform(scaleX: 0.985, y: 0.985) : .identity
+            }
+        }
     }
 }

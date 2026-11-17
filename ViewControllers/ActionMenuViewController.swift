@@ -64,23 +64,32 @@ final class ActionMenuViewController: UIViewController {
             petSpriteView.widthAnchor.constraint(equalToConstant: 64),
             petSpriteView.heightAnchor.constraint(equalToConstant: 64)
         ])
-        if let pet = gameManager.pet {
-            petSpriteView.kind = pet.kind
-            petSpriteView.mood = pet.mood
-            petSpriteView.equippedItems = gameManager.activeEquipment
-            petStateLabel.text = "\(pet.kind.displayName) · NIVEL \(pet.level)\n\(pet.mood.symbol)  \(pet.mood.title)\n🍖 Saciedad \(Int(pet.hunger))%   ✦ Ánimo \(Int(pet.happiness))%\n☾ Energía \(Int(pet.energy))%"
-        }
-        let isSleeping = gameManager.pet?.isSleeping == true
-        ScreenKit.setTitle(isSleeping ? "☀️  Despertar" : "🛌  Dormir", on: sleepButton)
-        ScreenKit.setTitle("🔮  Materia  ·  \(gameManager.equippedMateria.count)/\(GameManager.maximumEquippedMateria)  ·  \(gameManager.magicPoints) PM", on: materiaButton)
-        sleepButton.isEnabled = isSleeping || (gameManager.pet?.energy ?? 100) < 100
-        sleepButton.alpha = sleepButton.isEnabled ? 1 : 0.45
-        playButton.isEnabled = !isSleeping
-        playButton.alpha = playButton.isEnabled ? 1 : 0.45
         ScreenKit.setBackground(UIColor(red: 0.46, green: 0.27, blue: 0.25, alpha: 1), on: feedButton)
         ScreenKit.setBackground(UIColor(red: 0.28, green: 0.30, blue: 0.53, alpha: 1), on: playButton)
         ScreenKit.setBackground(UIColor(red: 0.20, green: 0.37, blue: 0.40, alpha: 1), on: sleepButton)
         ScreenKit.installScrollable(contentStack, in: self)
+        gameManager.onChange = { [weak self] in self?.refresh() }
+        refresh()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        gameManager.onChange = { [weak self] in self?.refresh() }
+        refresh()
+    }
+
+    private func refresh() {
+        guard let pet = gameManager.pet else { return }
+        petSpriteView.kind = pet.kind
+        petSpriteView.mood = pet.mood
+        petSpriteView.equippedItems = gameManager.activeEquipment
+        petStateLabel.text = "\(pet.name) · NIVEL \(pet.level)\n\(pet.mood.symbol)  \(pet.mood.title)\n🍖 Saciedad \(Int(pet.hunger))%   ✦ Ánimo \(Int(pet.happiness))%\n☾ Energía \(Int(pet.energy))%"
+        ScreenKit.setTitle(pet.isSleeping ? "☀️  Despertar" : "🛌  Dormir", on: sleepButton)
+        ScreenKit.setTitle("🔮  Materia  ·  \(gameManager.equippedMateria.count)/\(GameManager.maximumEquippedMateria)  ·  \(gameManager.magicPoints) PM", on: materiaButton)
+        sleepButton.isEnabled = pet.isSleeping || (!pet.isGameOver && pet.energy < 100)
+        playButton.isEnabled = !pet.isSleeping && !pet.isGameOver && pet.energy >= 8
+        sleepButton.alpha = sleepButton.isEnabled ? 1 : 0.45
+        playButton.alpha = playButton.isEnabled ? 1 : 0.45
     }
 
     @objc private func feed() { onFeed?() }

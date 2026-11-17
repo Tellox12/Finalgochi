@@ -105,12 +105,12 @@ final class ExpeditionsViewController: UIViewController {
     deinit { clockTimer?.invalidate() }
 
     private func configureRouteButtons() {
-        configure(meadowButton, for: .chocoboTrail)
-        configure(marketButton, for: .goblinMarket)
-        configure(cavernButton, for: .crystalCavern)
+        configure(meadowButton, for: .chocoboTrail, tint: UIColor(red: 0.14, green: 0.34, blue: 0.31, alpha: 1))
+        configure(marketButton, for: .goblinMarket, tint: UIColor(red: 0.35, green: 0.25, blue: 0.39, alpha: 1))
+        configure(cavernButton, for: .crystalCavern, tint: UIColor(red: 0.20, green: 0.29, blue: 0.48, alpha: 1))
     }
 
-    private func configure(_ button: UIButton, for route: ExpeditionRoute) {
+    private func configure(_ button: UIButton, for route: ExpeditionRoute, tint: UIColor) {
         let minutes = Int(route.duration / 60)
         let durationText = minutes == 0 ? "1 min" : "\(minutes) min"
         let title = "\(route.symbol)  \(route.title)\n\(route.description)\n\(durationText)  ·  +\(route.gilReward) Gil  ·  +\(route.experienceReward) EXP  ·  \(route.loot.emoji)\nNivel \(route.minimumLevel)+  ·  Energía \(Int(route.minimumEnergy))+"
@@ -119,6 +119,9 @@ final class ExpeditionsViewController: UIViewController {
         button.titleLabel?.textAlignment = .left
         button.titleLabel?.numberOfLines = 0
         button.contentHorizontalAlignment = .leading
+        ScreenKit.setBackground(tint, on: button)
+        button.layer.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
+        button.layer.shadowOpacity = 0.20
         button.heightAnchor.constraint(greaterThanOrEqualToConstant: 100).isActive = true
     }
 
