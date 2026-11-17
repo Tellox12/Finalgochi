@@ -55,7 +55,6 @@ final class PixelPetSpriteView: UIView {
     override func draw(_ rect: CGRect) {
         guard let context = UIGraphicsGetCurrentContext() else { return }
         context.setShouldAntialias(false)
-        context.setInterpolationQuality(.none)
         let rows = spriteRows
         let widestRow = CGFloat(rows.map { $0.count }.max() ?? 16)
         let pixelSize = min(bounds.width / widestRow, bounds.height / CGFloat(rows.count))

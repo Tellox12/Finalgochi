@@ -122,7 +122,7 @@ final class ShopViewController: UIViewController {
                 gameManager.unequip(item.slot)
                 messageLabel.text = "Retiraste \(item.name)."
             } else {
-                gameManager.equip(item)
+                _ = gameManager.equip(item)
                 messageLabel.text = "\(item.name) equipado. \(item.bonusDescription)."
             }
         } else if gameManager.buy(item) {
