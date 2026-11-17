@@ -45,6 +45,9 @@ enum ScreenKit {
             return outgoing
         }
         button.configuration = configuration
+        button.titleLabel?.numberOfLines = 0
+        button.titleLabel?.lineBreakMode = .byWordWrapping
+        button.titleLabel?.textAlignment = .center
         button.layer.cornerRadius = 14
         button.addTarget(FeedbackManager.shared, action: #selector(FeedbackManager.buttonWasTapped(_:)), for: .touchUpInside)
         return button
@@ -120,6 +123,41 @@ enum ScreenKit {
 
     static func configure(_ controller: UIViewController, title: String) {
         controller.view.backgroundColor = background
+        let backdrop = DarkGradientBackgroundView()
+        controller.view.insertSubview(backdrop, at: 0)
+        NSLayoutConstraint.activate([
+            backdrop.topAnchor.constraint(equalTo: controller.view.topAnchor),
+            backdrop.leadingAnchor.constraint(equalTo: controller.view.leadingAnchor),
+            backdrop.trailingAnchor.constraint(equalTo: controller.view.trailingAnchor),
+            backdrop.bottomAnchor.constraint(equalTo: controller.view.bottomAnchor)
+        ])
         controller.title = title
+    }
+}
+
+private final class DarkGradientBackgroundView: UIView {
+    private let gradientLayer = CAGradientLayer()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        translatesAutoresizingMaskIntoConstraints = false
+        isUserInteractionEnabled = false
+        gradientLayer.colors = [
+            UIColor(red: 0.13, green: 0.16, blue: 0.29, alpha: 1).cgColor,
+            ScreenKit.background.cgColor,
+            UIColor(red: 0.07, green: 0.10, blue: 0.19, alpha: 1).cgColor
+        ]
+        gradientLayer.locations = [0, 0.52, 1]
+        gradientLayer.startPoint = CGPoint(x: 0, y: 0)
+        gradientLayer.endPoint = CGPoint(x: 1, y: 1)
+        layer.addSublayer(gradientLayer)
+        accessibilityElementsHidden = true
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) no está disponible") }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        gradientLayer.frame = bounds
     }
 }

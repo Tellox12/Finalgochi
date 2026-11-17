@@ -20,6 +20,32 @@ enum PetKind: String, CaseIterable, Codable {
     }
 }
 
+struct PetCareModifiers: Equatable {
+    var hungerDecayMultiplier: Double
+    var happinessDecayMultiplier: Double
+    var energyDecayMultiplier: Double
+    var sleepRecoveryMultiplier: Double
+    var experienceGainMultiplier: Double
+
+    init(hungerDecayMultiplier: Double = 1, happinessDecayMultiplier: Double = 1, energyDecayMultiplier: Double = 1, sleepRecoveryMultiplier: Double = 1, experienceGainMultiplier: Double = 1) {
+        self.hungerDecayMultiplier = max(0.1, hungerDecayMultiplier)
+        self.happinessDecayMultiplier = max(0.1, happinessDecayMultiplier)
+        self.energyDecayMultiplier = max(0.1, energyDecayMultiplier)
+        self.sleepRecoveryMultiplier = max(0.1, sleepRecoveryMultiplier)
+        self.experienceGainMultiplier = max(0.1, experienceGainMultiplier)
+    }
+
+    func combined(with other: PetCareModifiers) -> PetCareModifiers {
+        PetCareModifiers(
+            hungerDecayMultiplier: hungerDecayMultiplier * other.hungerDecayMultiplier,
+            happinessDecayMultiplier: happinessDecayMultiplier * other.happinessDecayMultiplier,
+            energyDecayMultiplier: energyDecayMultiplier * other.energyDecayMultiplier,
+            sleepRecoveryMultiplier: sleepRecoveryMultiplier * other.sleepRecoveryMultiplier,
+            experienceGainMultiplier: experienceGainMultiplier * other.experienceGainMultiplier
+        )
+    }
+}
+
 struct PetModel: Codable, Equatable {
     var kind: PetKind
     var hunger: Double
@@ -62,29 +88,38 @@ struct PetModel: Codable, Equatable {
 
     var isGameOver: Bool { hunger <= 0 && happiness <= 0 && energy <= 0 }
     var nextLevelExperience: Int { level * 100 }
+    var mood: PetMood {
+        if isSleeping { return .sleeping }
+        if energy < 25 { return .tired }
+        if hunger < 30 { return .hungry }
+        if happiness < 30 { return .sad }
+        if happiness >= 75 { return .joyful }
+        return .calm
+    }
 
-    mutating func update(for elapsed: TimeInterval, now: Date = Date()) {
+    mutating func update(for elapsed: TimeInterval, now: Date = Date(), modifiers: PetCareModifiers = PetCareModifiers()) {
         guard elapsed > 0 else { return }
         let minutes = elapsed / 60
         if isSleeping {
-            let minutesUntilRested = max(0, (100 - energy) / 1.8)
+            let recoveryRate = 1.8 * modifiers.sleepRecoveryMultiplier
+            let minutesUntilRested = max(0, (100 - energy) / recoveryRate)
             let sleepingMinutes = min(minutes, minutesUntilRested)
-            hunger = Self.clamp(hunger - sleepingMinutes * 0.4)
-            happiness = Self.clamp(happiness - sleepingMinutes * 0.1)
-            energy = Self.clamp(energy + sleepingMinutes * 1.8)
+            hunger = Self.clamp(hunger - sleepingMinutes * 0.4 * modifiers.hungerDecayMultiplier)
+            happiness = Self.clamp(happiness - sleepingMinutes * 0.1 * modifiers.happinessDecayMultiplier)
+            energy = Self.clamp(energy + sleepingMinutes * recoveryRate)
 
             let awakeMinutes = minutes - sleepingMinutes
             if awakeMinutes > 0 {
                 isSleeping = false
                 sleepStartedAt = nil
-                hunger = Self.clamp(hunger - awakeMinutes * 0.8)
-                happiness = Self.clamp(happiness - awakeMinutes * 0.35)
-                energy = Self.clamp(energy - awakeMinutes * 0.5)
+                hunger = Self.clamp(hunger - awakeMinutes * 0.8 * modifiers.hungerDecayMultiplier)
+                happiness = Self.clamp(happiness - awakeMinutes * 0.35 * modifiers.happinessDecayMultiplier)
+                energy = Self.clamp(energy - awakeMinutes * 0.5 * modifiers.energyDecayMultiplier)
             }
         } else {
-            hunger = Self.clamp(hunger - minutes * 0.8)
-            happiness = Self.clamp(happiness - minutes * 0.35)
-            energy = Self.clamp(energy - minutes * 0.5)
+            hunger = Self.clamp(hunger - minutes * 0.8 * modifiers.hungerDecayMultiplier)
+            happiness = Self.clamp(happiness - minutes * 0.35 * modifiers.happinessDecayMultiplier)
+            energy = Self.clamp(energy - minutes * 0.5 * modifiers.energyDecayMultiplier)
         }
         lastUpdated = now
     }
@@ -92,6 +127,7 @@ struct PetModel: Codable, Equatable {
     mutating func feed(amount: Double = 25) { hunger = Self.clamp(hunger + max(0, amount)) }
     mutating func increaseHappiness(by amount: Double) { happiness = Self.clamp(happiness + max(0, amount)) }
     mutating func restoreEnergy(by amount: Double) { energy = Self.clamp(energy + max(0, amount)) }
+    mutating func spendEnergy(_ amount: Double) { energy = Self.clamp(energy - max(0, amount)) }
     mutating func play() { happiness = Self.clamp(happiness + 18); energy = Self.clamp(energy - 8) }
 
     mutating func startSleeping(at date: Date = Date()) {

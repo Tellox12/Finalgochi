@@ -9,7 +9,7 @@ final class InventoryViewController: UIViewController {
     private let potionButton: UIButton = { ScreenKit.button("") }()
     private let etherButton: UIButton = { ScreenKit.button("") }()
     private let closeButton: UIButton = { ScreenKit.button("Volver al hábitat") }()
-    private let hintLabel: UILabel = { ScreenKit.label("Usa objetos para recuperar estadísticas.", size: 14, color: .lightGray) }()
+    private let hintLabel: UILabel = { ScreenKit.label("Elige un objeto para cuidar a tu compañero. La cantidad se guarda entre partidas.", size: 14, color: ScreenKit.mutedText) }()
     private lazy var contentStack: UIStackView = {
         ScreenKit.stack([titleLabel, hintLabel, rationButton, greensButton, potionButton, etherButton, closeButton])
     }()
@@ -39,7 +39,14 @@ final class InventoryViewController: UIViewController {
 
     private func update(_ button: UIButton, item: ConsumableItem) {
         let quantity = gameManager.inventory[item, default: 0]
-        ScreenKit.setTitle("\(item.emoji)  \(item.name)  ×\(quantity)", on: button)
+        let effect: String
+        switch item {
+        case .ration: effect = "+25 saciedad"
+        case .gysahlGreens: effect = "+45 saciedad · +5 ánimo"
+        case .potion: effect = "+30 energía"
+        case .ether: effect = "+30 ánimo"
+        }
+        ScreenKit.setTitle("\(item.emoji)  \(item.name)  ×\(quantity)\n\(effect)", on: button)
         button.isEnabled = quantity > 0
         button.alpha = quantity > 0 ? 1 : 0.45
     }

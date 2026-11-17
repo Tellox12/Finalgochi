@@ -1,5 +1,6 @@
 import UIKit
 import CoreHaptics
+import AudioToolbox
 
 final class FeedbackManager: NSObject {
     static let shared = FeedbackManager()
@@ -13,6 +14,9 @@ final class FeedbackManager: NSObject {
     }
 
     @objc func buttonWasTapped(_ sender: UIButton) {
+        if UserDefaults.standard.object(forKey: "finalgochi.soundEnabled") as? Bool ?? true {
+            AudioServicesPlaySystemSound(1104)
+        }
         let isEnabled = UserDefaults.standard.object(forKey: "finalgochi.hapticsEnabled") as? Bool ?? true
         guard isEnabled, let engine else { return }
         let intensity = CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.55)

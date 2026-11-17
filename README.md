@@ -24,4 +24,6 @@ Para revisar localmente la lógica Swift que no depende de UIKit, abre una termi
 - `ViewControllers/`: pantallas UIKit programáticas.
 - `Resources/`: recursos gráficos (se pueden agregar desde Xcode).
 
-La mascota, el Gil, la experiencia, el inventario y los accesorios equipados se guardan localmente mediante `UserDefaults`. Los consumibles tienen cantidades y efectos; dormir recupera energía con el paso del tiempo y la mascota despierta al descansar por completo.
+La mascota, el Gil, la experiencia, el inventario, el equipo, las materias y el progreso de misiones diarias se guardan localmente mediante `UserDefaults`. El bazar vende piezas para cabeza, cuerpo y amuleto; cada una aporta un efecto pasivo visible en el personaje pixel art. Las materias se compran, se equipan en dos ranuras y permiten lanzar Cura, Piro, Prisa y Regenerar consumiendo PM, que se recuperan con el tiempo. Los consumibles muestran efectos y cantidades; dormir recupera energía y la mascota despierta al descansar por completo. El hábitat cambia entre amanecer, día, atardecer y noche; la ficha presenta equipo, materias, nivel, experiencia y barras de estado. Las misiones diarias entregan Gil una sola vez por objetivo. El minijuego tiene ventana de reacción y estado de tiempo agotado. Los ajustes permiten activar/desactivar sonidos de interfaz, hápticos y recordatorios.
+
+El chequeo Foundation también incluye `WorldPhase.swift` y `DailyQuest.swift`, para validar el estado emocional, el ciclo del hábitat y las misiones sin UIKit.

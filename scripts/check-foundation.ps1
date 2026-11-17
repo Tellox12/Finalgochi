@@ -31,6 +31,8 @@ if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
 & $swiftc -sdk $sdk -target $target -swift-version 5 -typecheck `
     .\Models\PetModel.swift `
     .\Models\StoreItem.swift `
+    .\Models\WorldPhase.swift `
+    .\Models\DailyQuest.swift `
     .\Managers\GameManager.swift
 
 if ($LASTEXITCODE -ne 0) {

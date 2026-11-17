@@ -24,12 +24,37 @@ final class HomeViewController: UIViewController {
         spriteView.translatesAutoresizingMaskIntoConstraints = false
         return spriteView
     }()
-    private let nameLabel: UILabel = { ScreenKit.label("", size: 25, color: .white, weight: .bold) }()
-    private let accessoryLabel: UILabel = { ScreenKit.label("", size: 13, color: ScreenKit.gold, weight: .semibold) }()
+    private let nameLabel: UILabel = {
+        let label = ScreenKit.label("", size: 22, color: .white, weight: .bold)
+        label.textAlignment = .left
+        return label
+    }()
+    private let accessoryLabel: UILabel = {
+        let label = ScreenKit.label("", size: 12, color: ScreenKit.gold, weight: .semibold)
+        label.textAlignment = .left
+        return label
+    }()
     private let sleepStatusLabel: UILabel = {
-        ScreenKit.label("", size: 11, color: ScreenKit.mint, weight: .bold)
+        let label = ScreenKit.label("", size: 11, color: ScreenKit.mint, weight: .bold)
+        label.textAlignment = .left
+        return label
     }()
     private let petCard: UIView = { ScreenKit.card() }()
+    private let habitatView: HabitatSceneView = { HabitatSceneView() }()
+    private let moodLabel: UILabel = {
+        let label = ScreenKit.label("", size: 12, color: .white, weight: .bold)
+        label.textAlignment = .left
+        return label
+    }()
+    private let questsTitleLabel: UILabel = {
+        let label = ScreenKit.label("ENCARGOS DE HOY", size: 12, color: ScreenKit.gold, weight: .bold)
+        label.textAlignment = .left
+        return label
+    }()
+    private let feedQuestRow: DailyQuestRowView = { DailyQuestRowView() }()
+    private let playQuestRow: DailyQuestRowView = { DailyQuestRowView() }()
+    private let sleepQuestRow: DailyQuestRowView = { DailyQuestRowView() }()
+    private let questsCard: UIView = { ScreenKit.card() }()
     private let statsCard: UIView = { ScreenKit.card() }()
     private let statsTitleLabel: UILabel = {
         let label = ScreenKit.label("ESTADO DEL COMPAÑERO", size: 12, color: ScreenKit.mutedText, weight: .bold)
@@ -38,7 +63,7 @@ final class HomeViewController: UIViewController {
     }()
 
     private let hungerMeter: StatusMeterView = {
-        StatusMeterView(title: "HAMBRE", tint: UIColor(red: 1, green: 0.61, blue: 0.35, alpha: 1))
+        StatusMeterView(title: "SACIEDAD", tint: UIColor(red: 1, green: 0.61, blue: 0.35, alpha: 1))
     }()
     private let happinessMeter: StatusMeterView = {
         StatusMeterView(title: "ÁNIMO", tint: UIColor(red: 1, green: 0.45, blue: 0.64, alpha: 1))
@@ -59,12 +84,19 @@ final class HomeViewController: UIViewController {
         return stack
     }()
     private lazy var petCardStack: UIStackView = {
-        let stack = ScreenKit.stack([petSpriteView, nameLabel, accessoryLabel, sleepStatusLabel], spacing: 6)
+        let stack = ScreenKit.horizontalStack([petSpriteView, petInfoStack])
+        stack.distribution = .fill
         stack.alignment = .center
         return stack
     }()
+    private lazy var petInfoStack: UIStackView = {
+        ScreenKit.stack([nameLabel, moodLabel, accessoryLabel, sleepStatusLabel], spacing: 6)
+    }()
     private lazy var statsStack: UIStackView = {
         ScreenKit.stack([statsTitleLabel, hungerMeter, happinessMeter, energyMeter], spacing: 13)
+    }()
+    private lazy var questsStack: UIStackView = {
+        ScreenKit.stack([questsTitleLabel, feedQuestRow, playQuestRow, sleepQuestRow], spacing: 12)
     }()
     private lazy var utilityRowOne: UIStackView = {
         let stack = ScreenKit.horizontalStack([inventoryButton, sheetButton])
@@ -77,7 +109,7 @@ final class HomeViewController: UIViewController {
         return stack
     }()
     private lazy var contentStack: UIStackView = {
-        ScreenKit.stack([headerStack, petCard, statsCard, actionsButton, utilityRowOne, utilityRowTwo], spacing: 15)
+        ScreenKit.stack([headerStack, petCard, statsCard, questsCard, actionsButton, utilityRowOne, utilityRowTwo], spacing: 15)
     }()
 
     init(gameManager: GameManager) {
@@ -103,22 +135,46 @@ final class HomeViewController: UIViewController {
         }
     }
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        petSpriteView.transform = .identity
+        UIView.animate(withDuration: 1.8, delay: 0, options: [.autoreverse, .repeat, .allowUserInteraction, .beginFromCurrentState], animations: {
+            self.petSpriteView.transform = CGAffineTransform(translationX: 0, y: -5)
+        }, completion: nil)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        petSpriteView.layer.removeAllAnimations()
+        petSpriteView.transform = .identity
+    }
+
     private func configureCards() {
         petCard.addSubview(petCardStack)
+        petCard.insertSubview(habitatView, at: 0)
         statsCard.addSubview(statsStack)
+        questsCard.addSubview(questsStack)
 
         NSLayoutConstraint.activate([
+            habitatView.topAnchor.constraint(equalTo: petCard.topAnchor),
+            habitatView.leadingAnchor.constraint(equalTo: petCard.leadingAnchor),
+            habitatView.trailingAnchor.constraint(equalTo: petCard.trailingAnchor),
+            habitatView.bottomAnchor.constraint(equalTo: petCard.bottomAnchor),
             petCardStack.topAnchor.constraint(equalTo: petCard.topAnchor, constant: 18),
             petCardStack.leadingAnchor.constraint(equalTo: petCard.leadingAnchor, constant: 20),
             petCardStack.trailingAnchor.constraint(equalTo: petCard.trailingAnchor, constant: -20),
             petCardStack.bottomAnchor.constraint(equalTo: petCard.bottomAnchor, constant: -18),
-            petCard.heightAnchor.constraint(greaterThanOrEqualToConstant: 210),
-            petSpriteView.widthAnchor.constraint(equalToConstant: 148),
-            petSpriteView.heightAnchor.constraint(equalToConstant: 148),
+            petCard.heightAnchor.constraint(greaterThanOrEqualToConstant: 176),
+            petSpriteView.widthAnchor.constraint(equalToConstant: 120),
+            petSpriteView.heightAnchor.constraint(equalToConstant: 120),
             statsStack.topAnchor.constraint(equalTo: statsCard.topAnchor, constant: 18),
             statsStack.leadingAnchor.constraint(equalTo: statsCard.leadingAnchor, constant: 18),
             statsStack.trailingAnchor.constraint(equalTo: statsCard.trailingAnchor, constant: -18),
-            statsStack.bottomAnchor.constraint(equalTo: statsCard.bottomAnchor, constant: -18)
+            statsStack.bottomAnchor.constraint(equalTo: statsCard.bottomAnchor, constant: -18),
+            questsStack.topAnchor.constraint(equalTo: questsCard.topAnchor, constant: 18),
+            questsStack.leadingAnchor.constraint(equalTo: questsCard.leadingAnchor, constant: 18),
+            questsStack.trailingAnchor.constraint(equalTo: questsCard.trailingAnchor, constant: -18),
+            questsStack.bottomAnchor.constraint(equalTo: questsCard.bottomAnchor, constant: -18)
         ])
     }
 
@@ -140,8 +196,21 @@ final class HomeViewController: UIViewController {
     private func refresh() {
         guard let pet = gameManager.pet else { return }
         petSpriteView.kind = pet.kind
+        petSpriteView.mood = pet.mood
+        petSpriteView.equippedItems = gameManager.activeEquipment
+        let phase = WorldPhase.current()
+        habitatView.phase = phase
+        sectionLabel.text = "MOOGLE GARDENS  /  \(phase.title)"
+        moodLabel.text = "\(pet.mood.symbol)  \(pet.mood.title)"
+        for quest in gameManager.dailyQuests.quests {
+            switch quest.kind {
+            case .feed: feedQuestRow.update(quest)
+            case .play: playQuestRow.update(quest)
+            case .sleep: sleepQuestRow.update(quest)
+            }
+        }
         nameLabel.text = "\(pet.kind.displayName)  ·  NIVEL \(pet.level)"
-        accessoryLabel.text = gameManager.equippedAccessory.map { "\($0.emoji)  \($0.name) equipado" } ?? "SIN ACCESORIO EQUIPADO"
+        accessoryLabel.text = "EQUIPO  ·  \(gameManager.equipmentSummary)"
         sleepStatusLabel.text = pet.isSleeping ? "✦  DESCANSANDO  ✦" : ""
         gilLabel.text = "  ◈  \(gameManager.gil) GIL  "
         hungerMeter.update(value: pet.hunger)
@@ -157,6 +226,7 @@ final class HomeViewController: UIViewController {
 }
 
 private final class StatusMeterView: UIView {
+    private var normalTint: UIColor = ScreenKit.accent
     private let titleLabel: UILabel = {
         let label = ScreenKit.label("", size: 11, color: ScreenKit.mutedText, weight: .bold)
         label.textAlignment = .left
@@ -186,6 +256,7 @@ private final class StatusMeterView: UIView {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         titleLabel.text = title
+        normalTint = tint
         progressView.progressTintColor = tint
         addSubview(contentStack)
         NSLayoutConstraint.activate([
@@ -206,6 +277,61 @@ private final class StatusMeterView: UIView {
         let safeValue = min(100, max(0, value))
         valueLabel.text = "\(Int(safeValue))%"
         progressView.setProgress(Float(safeValue / 100), animated: true)
+        progressView.progressTintColor = safeValue < 25 ? .systemRed : (safeValue < 50 ? .systemOrange : normalTint)
         accessibilityValue = "\(Int(safeValue)) por ciento"
+    }
+}
+
+private final class DailyQuestRowView: UIView {
+    private let titleLabel: UILabel = {
+        let label = ScreenKit.label("", size: 13, color: .white, weight: .medium)
+        label.textAlignment = .left
+        return label
+    }()
+    private let progressLabel: UILabel = {
+        let label = ScreenKit.label("", size: 11, color: ScreenKit.mutedText, weight: .bold)
+        label.textAlignment = .right
+        return label
+    }()
+    private let progressView: UIProgressView = {
+        let progress = UIProgressView(progressViewStyle: .default)
+        progress.translatesAutoresizingMaskIntoConstraints = false
+        progress.trackTintColor = UIColor.white.withAlphaComponent(0.10)
+        progress.progressTintColor = ScreenKit.mint
+        return progress
+    }()
+    private lazy var headerStack: UIStackView = {
+        let stack = ScreenKit.horizontalStack([titleLabel, progressLabel])
+        stack.distribution = .fill
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        progressLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return stack
+    }()
+    private lazy var contentStack: UIStackView = {
+        ScreenKit.stack([headerStack, progressView], spacing: 6)
+    }()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        translatesAutoresizingMaskIntoConstraints = false
+        addSubview(contentStack)
+        NSLayoutConstraint.activate([
+            contentStack.topAnchor.constraint(equalTo: topAnchor),
+            contentStack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            contentStack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            contentStack.bottomAnchor.constraint(equalTo: bottomAnchor),
+            progressView.heightAnchor.constraint(equalToConstant: 5)
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) no está disponible") }
+
+    func update(_ quest: DailyQuest) {
+        titleLabel.text = "\(quest.kind.symbol)  \(quest.kind.title)"
+        progressLabel.text = quest.rewardClaimed ? "✓ +\(quest.kind.gilReward) GIL" : "\(min(quest.progress, quest.kind.target))/\(quest.kind.target)"
+        progressView.setProgress(Float(quest.progress) / Float(quest.kind.target), animated: true)
+        accessibilityLabel = quest.summary
+        accessibilityValue = quest.rewardClaimed ? "Completada, recompensa recibida" : "\(quest.progress) de \(quest.kind.target)"
+        isAccessibilityElement = true
     }
 }

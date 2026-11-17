@@ -48,6 +48,7 @@ final class AppCoordinator: Coordinator {
         let screen = ActionMenuViewController(gameManager: gameManager)
         screen.onFeed = { [weak self] in self?.showInventory() }
         screen.onPlay = { [weak self] in self?.showMinigame() }
+        screen.onOpenMateria = { [weak self] in self?.showMateria() }
         screen.onSleep = { [weak self] in
             guard let self else { return }
             if self.gameManager.pet?.isSleeping == true {
@@ -84,9 +85,38 @@ final class AppCoordinator: Coordinator {
         navigationController.pushViewController(screen, animated: true)
     }
 
-    private func showShop() {
+    private func showShop(returnToMateria: Bool = false) {
         let screen = ShopViewController(gameManager: gameManager)
-        screen.onClose = { [weak self] in self?.showHome() }
+        screen.onClose = { [weak self] in
+            guard let self else { return }
+            if returnToMateria {
+                self.navigationController.popViewController(animated: true)
+            } else {
+                self.showHome()
+            }
+        }
+        screen.onOpenMateria = { [weak self] in self?.showMateria(returnToShop: true) }
+        navigationController.pushViewController(screen, animated: true)
+    }
+
+    private func showMateria(returnToShop: Bool = false) {
+        let screen = MateriaViewController(gameManager: gameManager)
+        screen.onClose = { [weak self] in
+            guard let self else { return }
+            if returnToShop {
+                self.navigationController.popViewController(animated: true)
+            } else {
+                self.showHome()
+            }
+        }
+        screen.onOpenShop = { [weak self] in
+            guard let self else { return }
+            if returnToShop {
+                self.navigationController.popViewController(animated: true)
+            } else {
+                self.showShop(returnToMateria: true)
+            }
+        }
         navigationController.pushViewController(screen, animated: true)
     }
 

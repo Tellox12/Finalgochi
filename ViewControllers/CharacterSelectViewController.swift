@@ -10,16 +10,16 @@ final class CharacterSelectViewController: UIViewController {
         ScreenKit.label("Elige a tu compañero", size: 28, color: .white, weight: .bold)
     }()
     private let subtitleLabel: UILabel = {
-        ScreenKit.label("Cada criatura tiene su propio encanto.\n¿Quién viajará contigo?", size: 15, color: ScreenKit.mutedText)
+        ScreenKit.label("Tres criaturas. Tres formas de vivir la aventura.", size: 15, color: ScreenKit.mutedText)
     }()
-    private let moogleButton: UIButton = {
-        CharacterSelectViewController.makeCharacterCard(title: "☁️\nMOOGLE\nCariñoso y curioso", color: UIColor(red: 0.25, green: 0.40, blue: 0.59, alpha: 1))
+    private let moogleButton: CharacterSelectionCard = {
+        CharacterSelectionCard(kind: .moogle, detail: "Cariñoso y curioso", tint: UIColor(red: 0.25, green: 0.40, blue: 0.59, alpha: 1))
     }()
-    private let chocoboButton: UIButton = {
-        CharacterSelectViewController.makeCharacterCard(title: "🐤\nCHOCOBO\nRápido y valiente", color: UIColor(red: 0.53, green: 0.38, blue: 0.16, alpha: 1))
+    private let chocoboButton: CharacterSelectionCard = {
+        CharacterSelectionCard(kind: .chocobo, detail: "Rápido y valiente", tint: UIColor(red: 0.53, green: 0.38, blue: 0.16, alpha: 1))
     }()
-    private let cactilioButton: UIButton = {
-        CharacterSelectViewController.makeCharacterCard(title: "🌵\nCACTILIO\nTranquilo y resistente", color: UIColor(red: 0.19, green: 0.43, blue: 0.34, alpha: 1))
+    private let cactilioButton: CharacterSelectionCard = {
+        CharacterSelectionCard(kind: .cactilio, detail: "Tranquilo y resistente", tint: UIColor(red: 0.19, green: 0.43, blue: 0.34, alpha: 1))
     }()
     private lazy var contentStack: UIStackView = {
         ScreenKit.stack([eyebrowLabel, titleLabel, subtitleLabel, moogleButton, chocoboButton, cactilioButton], spacing: 14)
@@ -34,22 +34,77 @@ final class CharacterSelectViewController: UIViewController {
         ScreenKit.installScrollable(contentStack, in: self)
     }
 
-    private static func makeCharacterCard(title: String, color: UIColor) -> UIButton {
-        let button = ScreenKit.button(title)
-        ScreenKit.setBackground(color.withAlphaComponent(0.48), on: button)
-        button.layer.cornerRadius = 20
-        button.layer.borderWidth = 1
-        button.layer.borderColor = color.withAlphaComponent(0.9).cgColor
-        button.titleLabel?.font = .systemFont(ofSize: 18, weight: .bold)
-        button.titleLabel?.numberOfLines = 3
-        button.titleLabel?.lineBreakMode = .byWordWrapping
-        button.titleLabel?.textAlignment = .center
-        button.accessibilityHint = "Toca dos veces para elegir este compañero"
-        button.heightAnchor.constraint(equalToConstant: 132).isActive = true
-        return button
-    }
-
     @objc private func selectMoogle() { onCharacterSelected?(.moogle) }
     @objc private func selectChocobo() { onCharacterSelected?(.chocobo) }
     @objc private func selectCactilio() { onCharacterSelected?(.cactilio) }
+}
+
+private final class CharacterSelectionCard: UIButton {
+    private let spriteView: PixelPetSpriteView = {
+        let view = PixelPetSpriteView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    private let nameLabel: UILabel = {
+        let label = ScreenKit.label("", size: 18, color: .white, weight: .bold)
+        label.textAlignment = .left
+        return label
+    }()
+    private let detailLabel: UILabel = {
+        let label = ScreenKit.label("", size: 13, color: ScreenKit.mutedText)
+        label.textAlignment = .left
+        return label
+    }()
+    private let callToActionLabel: UILabel = {
+        let label = ScreenKit.label("ELEGIR COMPAÑERO  ›", size: 10, color: ScreenKit.gold, weight: .bold)
+        label.textAlignment = .left
+        return label
+    }()
+    private lazy var textStack: UIStackView = {
+        ScreenKit.stack([nameLabel, detailLabel, callToActionLabel], spacing: 7)
+    }()
+    private lazy var contentStack: UIStackView = {
+        let stack = ScreenKit.horizontalStack([spriteView, textStack])
+        stack.distribution = .fill
+        stack.alignment = .center
+        return stack
+    }()
+
+    init(kind: PetKind, detail: String, tint: UIColor) {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        var configuration = UIButton.Configuration.plain()
+        configuration.contentInsets = .zero
+        self.configuration = configuration
+        backgroundColor = tint.withAlphaComponent(0.25)
+        layer.cornerRadius = 20
+        layer.borderWidth = 1
+        layer.borderColor = tint.withAlphaComponent(0.8).cgColor
+        layer.masksToBounds = true
+
+        spriteView.kind = kind
+        spriteView.showsMoodBadge = false
+        nameLabel.text = kind.displayName.uppercased()
+        detailLabel.text = detail
+        addSubview(contentStack)
+        NSLayoutConstraint.activate([
+            heightAnchor.constraint(equalToConstant: 126),
+            contentStack.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+            contentStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            contentStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            contentStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+            spriteView.widthAnchor.constraint(equalToConstant: 100),
+            spriteView.heightAnchor.constraint(equalToConstant: 100),
+            textStack.trailingAnchor.constraint(equalTo: contentStack.trailingAnchor)
+        ])
+        accessibilityLabel = "\(kind.displayName), \(detail)"
+        accessibilityHint = "Toca dos veces para elegir este compañero"
+        addTarget(FeedbackManager.shared, action: #selector(FeedbackManager.buttonWasTapped(_:)), for: .touchUpInside)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) no está disponible") }
+
+    override var isHighlighted: Bool {
+        didSet { alpha = isHighlighted ? 0.72 : 1 }
+    }
 }
