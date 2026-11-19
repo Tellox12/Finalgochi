@@ -27,19 +27,22 @@ final class PixelPetSpriteView: UIView {
         }
     }
 
+    /// Limited NES-style palette: one dark outline, two or three tones per material.
     private let colors: [Character: UIColor] = [
-        "D": UIColor(red: 0.16, green: 0.17, blue: 0.30, alpha: 1),
-        "K": UIColor(red: 0.10, green: 0.12, blue: 0.20, alpha: 1),
-        "W": UIColor(red: 0.93, green: 0.91, blue: 0.98, alpha: 1),
-        "w": UIColor(red: 0.77, green: 0.81, blue: 0.92, alpha: 1),
-        "Y": UIColor(red: 1.00, green: 0.78, blue: 0.28, alpha: 1),
-        "y": UIColor(red: 0.91, green: 0.55, blue: 0.17, alpha: 1),
-        "O": UIColor(red: 0.97, green: 0.49, blue: 0.24, alpha: 1),
-        "R": UIColor(red: 0.88, green: 0.20, blue: 0.37, alpha: 1),
-        "P": UIColor(red: 0.99, green: 0.46, blue: 0.65, alpha: 1),
-        "G": UIColor(red: 0.30, green: 0.72, blue: 0.48, alpha: 1),
-        "g": UIColor(red: 0.16, green: 0.48, blue: 0.36, alpha: 1),
-        "L": UIColor(red: 0.56, green: 0.88, blue: 0.56, alpha: 1)
+        "K": UIColor(red: 0.07, green: 0.08, blue: 0.14, alpha: 1),
+        "W": UIColor(red: 0.96, green: 0.95, blue: 1.00, alpha: 1),
+        "w": UIColor(red: 0.74, green: 0.77, blue: 0.91, alpha: 1),
+        "R": UIColor(red: 0.86, green: 0.19, blue: 0.26, alpha: 1),
+        "r": UIColor(red: 0.56, green: 0.10, blue: 0.17, alpha: 1),
+        "P": UIColor(red: 0.98, green: 0.47, blue: 0.66, alpha: 1),
+        "V": UIColor(red: 0.47, green: 0.38, blue: 0.72, alpha: 1),
+        "v": UIColor(red: 0.28, green: 0.22, blue: 0.49, alpha: 1),
+        "Y": UIColor(red: 1.00, green: 0.80, blue: 0.28, alpha: 1),
+        "y": UIColor(red: 0.90, green: 0.55, blue: 0.15, alpha: 1),
+        "O": UIColor(red: 0.96, green: 0.47, blue: 0.17, alpha: 1),
+        "G": UIColor(red: 0.33, green: 0.72, blue: 0.38, alpha: 1),
+        "g": UIColor(red: 0.14, green: 0.44, blue: 0.26, alpha: 1),
+        "S": UIColor(red: 0.94, green: 0.89, blue: 0.62, alpha: 1)
     ]
 
     override init(frame: CGRect) {
@@ -168,45 +171,88 @@ final class PixelPetSpriteView: UIView {
     private var spriteRows: [String] {
         switch kind {
         case .moogle:
+            // Round white body, red pom-pom, purple bat wings and tiny feet: NES-era moogle.
             return [
-                "..........RRRR..........", ".........RRYYRR.........", "..........RRRR..........",
-                "...........DD...........", "....DD.....DD.....DD....", "...DWWD....DD....DWWD...",
-                "..DWWWD....DD....DWWWD..", "..DWWWDD..DDDD..DDWWWD..",
-                "...DDDWWDDDDDDDDWWDDD...", "......DDDDDDDDDD.........",
-                "....DDWWWWWWWWWWDD.......", "...DWWWWWWWWWWWWWWD......",
-                "..DWWWWWWWWWWWWWWWWD.....", "..DWWKWWWWWWKWWWWWWD.....",
-                "..DWWWWWWPPWWWWWWWWD.....", "...DWWWWWWWWWWWWWWD......",
-                "....DDWWWWWWWWWWDD.......", "......DDDDDDDDDD..........",
-                "......DYYD....DYYD........", ".....DDDD......DDDD.......",
-                ".....DWWD......DWWD.......", "......DD........DD........"
+                "..........RRRR..........",
+                ".........RRRRRR.........",
+                ".........RRRRRR.........",
+                "..........rrrr..........",
+                "........KKKKKKKK........",
+                "......KWWWWWWWWWWK......",
+                ".....KWWWWWWWWWWWWK.....",
+                "....KWWWWWWWWWWWWWWK....",
+                "....KWWWWWWWWWWWWWWK....",
+                "...vKWWWWWWWWWWWWWWKv...",
+                "..vVKWWWKKWWWWKKWWWKVv..",
+                "..vVKWWWKKWWWWKKWWWKVv..",
+                ".vVVKWWWWWWPPWWWWWWKVVv.",
+                "..vVKWWWWWWWWWWWWWWKVv..",
+                "...vKWWWWWWWWWWWWWWKv...",
+                "....KwWWWWWWWWWWWWwK....",
+                "....KwWWWWWWWWWWWWwK....",
+                "....KwwWWWWWWWWWWwwK....",
+                ".....KwwWWWWWWWWwwK.....",
+                "......KwwwwWWwwwwK......",
+                "........KKKKKKKK........",
+                "......KWWWK..KWWWK......",
+                "......KWWWK..KWWWK......",
+                "......KKKKK..KKKKK......"
             ]
         case .chocobo:
+            // Crest, long neck, hooked beak, fan tail and big orange feet.
             return [
-                "...........OO............", "..........OYYO...........", "...........YY.............",
-                ".........DYYYYD...........", "........DYYYYYYD..........",
-                ".......DYYYYYYYYD.........", "......DYYYYYYYYYYD........",
-                "......DYYKYYYYKYYD........", ".......DYYYYYYYYD..OOO....",
-                "........DYYYYYYDDOOO......", ".........DYYYYYYYYD.......",
-                "........DYYYYYYYYYYD......", ".......DYYYYYYYYYYYYD.....",
-                "......DYYYYYYYYYYYYYYD....", ".....DYYYYYYYYYYYYYYYYD...",
-                ".....DYYYYDYYYYYYYYYYD....", "......DDDD..DYYYYYDD.......",
-                "...........DYYYYD...........", "..........DYYYYYD...........",
-                ".........DD....DD...........", ".........DYY..DYYD...........",
-                ".........DD....DD............"
+                "..............Y.Y.......",
+                ".............YY.YY......",
+                ".............KKKKK......",
+                "............KYYYYYK.....",
+                "............KYYKYYKOO...",
+                "............KYYYYYKOOO..",
+                "............KYYYYYKOO...",
+                "............KYYYYK......",
+                ".............KYYK.......",
+                "............KYYK........",
+                "...........KYYK.........",
+                "...YY.....KYYK..........",
+                "..YYY....KYYK...........",
+                "..YYYKYYYYYYYYYYYYK.....",
+                "...KYYYYYYYYYYYYYYYYK...",
+                "..KYYyyyyyYYYYYYYYYYYK..",
+                "..KYyyyyyyYYYYYYYYYYYK..",
+                "...KYyyyyyYYYYYYYYYYK...",
+                "....KYyyyyYYYYYYYYYK....",
+                "......KYYYYYYYYYYK......",
+                ".......KKKKKKKKKK.......",
+                "......KYK...KYK.........",
+                "......KYK...KYK.........",
+                ".....KOOOOK.KOOOOK......"
             ]
         case .cactilio:
+            // Spiked crown, stoic face, needle-tipped arms and stubby legs.
             return [
-                "..........Y..Y............", "...........GG.............", "...........LG.............",
-                "......DD...GG...DD.........", ".....DGGD..GG..DGGD........",
-                ".....DGGD..GG..DGGD........", "......DD...GG...DD..........",
-                "...........GGGG............", "..........DGGGGD...........",
-                ".........DGGGGGGD..........", "...Y....DGGGGGGGGD....Y....",
-                "...Y...DGGGGGGGGGGD...Y....", "...Y...DGGGGGGGGGGD...Y....",
-                "......DGGKGGGGKGGD..........", "......DGGKKKKKKGGD..........",
-                ".......DDGGGGGGDD............", "..........GGGG..............",
-                ".........DGGGGD.............", "...DD....DGGGGD....DD........",
-                "..DGGD....DGGD....DGGD.......", "..DGGD....DGGD....DGGD.......",
-                "...DD......DD......DD........"
+                ".......S..S..S..........",
+                ".......S..S..S..........",
+                ".......KKKKKKKKKK.......",
+                "......KGGGGGGGGGGK......",
+                ".....SKGGGGGGGGGGKS.....",
+                "......KGGGGGGGGGGK......",
+                "......KGGKKGGKKGGK......",
+                "......KGGGGGGGGGgK......",
+                "......KGGGKKKKGGGK......",
+                "......KGGGGGGGGGgK......",
+                "......KGGGGGGGGGgK......",
+                ".KGGGGKGGGGGGGGGgKGGGGK.",
+                "SGGGGGKGGGGGGGGGgKGGGGGS",
+                ".KGGGGKGGGGGGGGGgKGGGGK.",
+                "......KGGGGGGGGGgK......",
+                "......KGGGGGGGGGgK......",
+                "......KGGGGGGGGGgK......",
+                "......KGGGGGGGGGgK......",
+                "......KGGGGGGGGGgK......",
+                ".....SKGGGGGGGGGgKS.....",
+                ".......KKKKKKKKKK.......",
+                ".......KGGK..KGGK.......",
+                ".......KGGK..KGGK.......",
+                ".......KKKK..KKKK......."
             ]
         }
     }
