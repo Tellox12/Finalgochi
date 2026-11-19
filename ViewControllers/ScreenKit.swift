@@ -448,7 +448,7 @@ final class MenuCardControl: UIControl {
         }
         backgroundColor = selected ? tint.withAlphaComponent(0.10) : ScreenKit.panel
         layer.borderColor = (selected ? tint.withAlphaComponent(0.45) : UIColor.white.withAlphaComponent(0.055)).cgColor
-        chevronView.image = ScreenKit.symbolImage(selected ? "checkmark.circle.fill" : "chevron.right", size: 13, color: selected ? tint : ScreenKit.faintText, weight: .bold)
+        chevronView.image = ScreenKit.symbolImage(selected ? "checkmark.circle.fill" : "chevron.right", size: 13, weight: .bold, color: selected ? tint : ScreenKit.faintText)
         accessibilityLabel = [title, subtitle, footnote].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ". ")
     }
 
