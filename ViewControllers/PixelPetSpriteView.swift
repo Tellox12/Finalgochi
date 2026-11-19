@@ -19,12 +19,6 @@ final class PixelPetSpriteView: UIView {
             setNeedsDisplay()
         }
     }
-    var accessorySymbol: String? {
-        didSet {
-            accessibilityHint = accessorySymbol.map { "Accesorio equipado: \($0)" }
-            setNeedsDisplay()
-        }
-    }
     var showsMoodBadge = true { didSet { setNeedsDisplay() } }
     var equippedItems: [StoreItem] = [] {
         didSet {
@@ -75,8 +69,10 @@ final class PixelPetSpriteView: UIView {
         let spriteHeight = pixelSize * CGFloat(rows.count)
         let originY = (bounds.height - spriteHeight) / 2
 
+        context.setShouldAntialias(true)
         context.setFillColor(UIColor.black.withAlphaComponent(0.22).cgColor)
         context.fillEllipse(in: CGRect(x: bounds.midX - bounds.width * 0.25, y: bounds.height - 13, width: bounds.width * 0.5, height: 9))
+        context.setShouldAntialias(false)
 
         for (rowIndex, row) in rows.enumerated() {
             let pixels = Array(row)
@@ -96,28 +92,17 @@ final class PixelPetSpriteView: UIView {
         drawEquipment(context: context, pixelSize: pixelSize, spriteHeight: spriteHeight, originY: originY)
         drawEvolutionMark(pixelSize: pixelSize, originY: originY)
 
+        context.setShouldAntialias(true)
         if showsMoodBadge {
             let badge = CGRect(x: bounds.width - 38, y: 5, width: 32, height: 28)
             let badgePath = UIBezierPath(roundedRect: badge, cornerRadius: 9)
             ScreenKit.panel.withAlphaComponent(0.92).setFill()
             badgePath.fill()
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.monospacedSystemFont(ofSize: 15, weight: .bold),
-                .foregroundColor: ScreenKit.gold
-            ]
-            let symbol = mood.symbol as NSString
-            let symbolSize = symbol.size(withAttributes: attributes)
-            symbol.draw(at: CGPoint(x: badge.midX - symbolSize.width / 2, y: badge.midY - symbolSize.height / 2), withAttributes: attributes)
-        }
-
-        if let accessorySymbol {
-            let accessoryBadge = CGRect(x: bounds.width - 38, y: bounds.height - 32, width: 32, height: 26)
-            ScreenKit.panel.withAlphaComponent(0.92).setFill()
-            UIBezierPath(roundedRect: accessoryBadge, cornerRadius: 8).fill()
-            let accessoryAttributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 15)]
-            let accessoryText = accessorySymbol as NSString
-            let accessorySize = accessoryText.size(withAttributes: accessoryAttributes)
-            accessoryText.draw(at: CGPoint(x: accessoryBadge.midX - accessorySize.width / 2, y: accessoryBadge.midY - accessorySize.height / 2), withAttributes: accessoryAttributes)
+            if let image = UIImage(systemName: mood.symbolName, withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .bold))?
+                .withTintColor(ScreenKit.gold, renderingMode: .alwaysOriginal) {
+                let size = image.size
+                image.draw(at: CGPoint(x: badge.midX - size.width / 2, y: badge.midY - size.height / 2))
+            }
         }
     }
 

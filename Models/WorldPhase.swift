@@ -45,23 +45,14 @@ enum PetMood: String, Codable {
         }
     }
 
-    var symbol: String {
+    var symbolName: String {
         switch self {
-        case .joyful: return "✦"
-        case .calm: return "•"
-        case .hungry: return "!"
-        case .tired: return "zZ"
-        case .sad: return "…"
-        case .sleeping: return "☾"
+        case .joyful: return "face.smiling.fill"
+        case .calm: return "circle.fill"
+        case .hungry: return "fork.knife"
+        case .tired: return "zzz"
+        case .sad: return "cloud.rain.fill"
+        case .sleeping: return "moon.zzz.fill"
         }
     }
-}
-
-enum PetActionKind {
-    case fed
-    case played
-    case wentToSleep
-    case wokeUp
-    case usedPotion
-    case cheeredUp
 }

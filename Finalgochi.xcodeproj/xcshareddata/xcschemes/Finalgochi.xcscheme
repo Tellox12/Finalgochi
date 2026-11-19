@@ -5,9 +5,18 @@
          <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
             <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="42AEFBAE01D2DFD981F7DA7D" BuildableName="Finalgochi.app" BlueprintName="Finalgochi" ReferencedContainer="container:Finalgochi.xcodeproj"/>
          </BuildActionEntry>
+         <BuildActionEntry buildForTesting="YES" buildForRunning="NO" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="NO">
+            <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="AA0000000000000000000020" BuildableName="FinalgochiTests.xctest" BlueprintName="FinalgochiTests" ReferencedContainer="container:Finalgochi.xcodeproj"/>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
-   <TestAction buildConfiguration="Debug" shouldUseLaunchSchemeArgsEnv="YES"/>
+   <TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES">
+      <Testables>
+         <TestableReference skipped="NO">
+            <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="AA0000000000000000000020" BuildableName="FinalgochiTests.xctest" BlueprintName="FinalgochiTests" ReferencedContainer="container:Finalgochi.xcodeproj"/>
+         </TestableReference>
+      </Testables>
+   </TestAction>
    <LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES">
       <BuildableProductRunnable runnableDebuggingMode="0">
          <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="42AEFBAE01D2DFD981F7DA7D" BuildableName="Finalgochi.app" BlueprintName="Finalgochi" ReferencedContainer="container:Finalgochi.xcodeproj"/>

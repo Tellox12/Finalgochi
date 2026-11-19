@@ -10,14 +10,6 @@ enum PetKind: String, CaseIterable, Codable, Hashable {
         case .cactilio: return "Cactilio"
         }
     }
-
-    var emoji: String {
-        switch self {
-        case .moogle: return "☁️"
-        case .chocobo: return "🐤"
-        case .cactilio: return "🌵"
-        }
-    }
 }
 
 struct PetCareModifiers: Equatable {
@@ -89,11 +81,23 @@ struct PetModel: Codable, Equatable {
         sleepStartedAt = try container.decodeIfPresent(Date.self, forKey: .sleepStartedAt)
     }
 
+    static let sleepDuration: TimeInterval = 8 * 60 * 60
+
+    private enum Rate {
+        static let awakeHunger = 0.14
+        static let awakeHappiness = 0.09
+        static let awakeEnergy = 0.11
+        static let sleepHunger = 0.03
+        static let sleepHappiness = 0.015
+        static let sleepRecovery = 1.6
+    }
+
     var isGameOver: Bool { hunger <= 0 && happiness <= 0 && energy <= 0 }
+    var isCritical: Bool { hunger < 20 || happiness < 20 || energy < 20 }
     var nextLevelExperience: Int { level * 100 }
     var mood: PetMood {
         if isSleeping { return .sleeping }
-        if energy < 25 { return .tired }
+        if energy < 20 { return .tired }
         if hunger < 30 { return .hungry }
         if happiness < 30 { return .sad }
         if happiness >= 75 { return .joyful }
@@ -101,30 +105,49 @@ struct PetModel: Codable, Equatable {
     }
 
     mutating func update(for elapsed: TimeInterval, now: Date = Date(), modifiers: PetCareModifiers = PetCareModifiers()) {
+        lastUpdated = now
         guard elapsed > 0 else { return }
         let minutes = elapsed / 60
-        if isSleeping {
-            let recoveryRate = 1.8 * modifiers.sleepRecoveryMultiplier
-            let minutesUntilRested = max(0, (100 - energy) / recoveryRate)
-            let sleepingMinutes = min(minutes, minutesUntilRested)
-            hunger = Self.clamp(hunger - sleepingMinutes * 0.4 * modifiers.hungerDecayMultiplier)
-            happiness = Self.clamp(happiness - sleepingMinutes * 0.1 * modifiers.happinessDecayMultiplier)
-            energy = Self.clamp(energy + sleepingMinutes * recoveryRate)
 
-            let awakeMinutes = minutes - sleepingMinutes
-            if awakeMinutes > 0 {
-                isSleeping = false
-                sleepStartedAt = nil
-                hunger = Self.clamp(hunger - awakeMinutes * 0.8 * modifiers.hungerDecayMultiplier)
-                happiness = Self.clamp(happiness - awakeMinutes * 0.35 * modifiers.happinessDecayMultiplier)
-                energy = Self.clamp(energy - awakeMinutes * 0.5 * modifiers.energyDecayMultiplier)
-            }
-        } else {
-            hunger = Self.clamp(hunger - minutes * 0.8 * modifiers.hungerDecayMultiplier)
-            happiness = Self.clamp(happiness - minutes * 0.35 * modifiers.happinessDecayMultiplier)
-            energy = Self.clamp(energy - minutes * 0.5 * modifiers.energyDecayMultiplier)
+        guard isSleeping else {
+            applyAwakeDecay(minutes: minutes, modifiers: modifiers)
+            return
         }
-        lastUpdated = now
+
+        guard let startedAt = sleepStartedAt else {
+            isSleeping = false
+            applyAwakeDecay(minutes: minutes, modifiers: modifiers)
+            return
+        }
+
+        let intervalStart = now.addingTimeInterval(-elapsed)
+        let sleepEnd = startedAt.addingTimeInterval(Self.sleepDuration)
+        let overlapStart = max(intervalStart, startedAt)
+        let overlapEnd = min(now, sleepEnd)
+        let sleepingSeconds = max(0, overlapEnd.timeIntervalSince(overlapStart))
+        let sleepingMinutes = min(minutes, sleepingSeconds / 60)
+
+        if sleepingMinutes > 0 {
+            hunger = Self.clamp(hunger - sleepingMinutes * Rate.sleepHunger * modifiers.hungerDecayMultiplier)
+            happiness = Self.clamp(happiness - sleepingMinutes * Rate.sleepHappiness * modifiers.happinessDecayMultiplier)
+            energy = Self.clamp(energy + sleepingMinutes * Rate.sleepRecovery * modifiers.sleepRecoveryMultiplier)
+        }
+
+        if now >= sleepEnd {
+            isSleeping = false
+            sleepStartedAt = nil
+        }
+
+        let awakeMinutes = max(0, minutes - sleepingMinutes)
+        if awakeMinutes > 0 {
+            applyAwakeDecay(minutes: awakeMinutes, modifiers: modifiers)
+        }
+    }
+
+    private mutating func applyAwakeDecay(minutes: Double, modifiers: PetCareModifiers) {
+        hunger = Self.clamp(hunger - minutes * Rate.awakeHunger * modifiers.hungerDecayMultiplier)
+        happiness = Self.clamp(happiness - minutes * Rate.awakeHappiness * modifiers.happinessDecayMultiplier)
+        energy = Self.clamp(energy - minutes * Rate.awakeEnergy * modifiers.energyDecayMultiplier)
     }
 
     mutating func feed(amount: Double = 25) { hunger = Self.clamp(hunger + max(0, amount)) }

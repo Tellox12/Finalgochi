@@ -5,18 +5,33 @@ final class MateriaViewController: UIViewController {
     var onClose: (() -> Void)?
     var onOpenShop: (() -> Void)?
 
-    private let titleLabel: UILabel = { ScreenKit.label("Núcleo de materias", size: 27, color: ScreenKit.accent, weight: .bold) }()
-    private let magicPointsLabel: UILabel = { ScreenKit.label("", size: 16, color: ScreenKit.gold, weight: .bold) }()
-    private let slotsLabel: UILabel = { ScreenKit.label("", size: 12, color: ScreenKit.mutedText) }()
-    private let messageLabel: UILabel = { ScreenKit.label("Equipa hasta dos materias. Sus pasivas se activan al equiparlas.", size: 13, color: ScreenKit.mutedText) }()
-    private let shopButton: UIButton = { ScreenKit.button("Visitar bazar  ›") }()
-    private let closeButton: UIButton = { ScreenKit.button("Volver al hábitat") }()
+    private var observerToken: UUID?
+
+    private let titleLabel = ScreenKit.label("Núcleo de materias", size: 27, color: .white, weight: .bold, textStyle: .largeTitle)
+    private let magicPointsLabel = ScreenKit.pill("100 / 100 PM", color: ScreenKit.sky)
+    private let slotsLabel: UILabel = {
+        let label = ScreenKit.label("", size: 12, color: ScreenKit.mutedText, textStyle: .caption1)
+        label.textAlignment = .left
+        return label
+    }()
+    private let messageLabel: UILabel = {
+        let label = ScreenKit.label("Equipa hasta dos materias. Sus pasivas se activan al equiparlas.", size: 12.5, color: ScreenKit.mutedText)
+        label.textAlignment = .left
+        return label
+    }()
+    private let shopButton = MenuCardControl()
+    private let closeButton = ScreenKit.button("Volver al hábitat", symbol: "chevron.left", style: .ghost)
     private let cards: [Materia: MateriaCardView] = {
         Dictionary(uniqueKeysWithValues: Materia.allCases.map { ($0, MateriaCardView(materia: $0)) })
     }()
-    private lazy var cardsStack: UIStackView = { ScreenKit.stack([], spacing: 13) }()
+    private lazy var cardsStack: UIStackView = { ScreenKit.stack([], spacing: 12) }()
+    private lazy var topRow: UIStackView = {
+        let stack = ScreenKit.headerRow(title: slotsLabel, trailing: [magicPointsLabel])
+        stack.distribution = .fill
+        return stack
+    }()
     private lazy var contentStack: UIStackView = {
-        ScreenKit.stack([titleLabel, magicPointsLabel, slotsLabel, cardsStack, messageLabel, shopButton, closeButton], spacing: 14)
+        ScreenKit.stack([titleLabel, topRow, cardsStack, messageLabel, shopButton, closeButton], spacing: 14)
     }()
 
     init(gameManager: GameManager) {
@@ -29,28 +44,44 @@ final class MateriaViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         ScreenKit.configure(self, title: "Materias")
+        titleLabel.textAlignment = .left
         for materia in Materia.allCases {
             guard let card = cards[materia] else { continue }
-            card.onToggle = { [weak self] in
-                guard let self else { return }
-                self.toggle(materia)
-            }
-            card.onCast = { [weak self] in
-                guard let self else { return }
-                self.cast(materia)
-            }
+            card.onToggle = { [weak self] in self?.toggle(materia) }
+            card.onCast = { [weak self] in self?.cast(materia) }
             cardsStack.addArrangedSubview(card)
         }
+        shopButton.update(
+            symbolName: "cart.fill",
+            title: "Visitar el bazar",
+            subtitle: "Consigue nuevas materias y equipo.",
+            tint: ScreenKit.gold
+        )
         shopButton.addTarget(self, action: #selector(openShop), for: .touchUpInside)
         closeButton.addTarget(self, action: #selector(close), for: .touchUpInside)
         ScreenKit.installScrollable(contentStack, in: self)
-        gameManager.onChange = { [weak self] in self?.refresh() }
+        observerToken = gameManager.addObserver { [weak self] in self?.refresh() }
         refresh()
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        gameManager.updateElapsedTime()
+        refresh()
+    }
+
+    deinit { gameManager.removeObserver(observerToken) }
+
     private func refresh() {
-        magicPointsLabel.text = "✦  PM  \(gameManager.magicPoints) / \(GameManager.maximumMagicPoints)"
-        slotsLabel.text = "RANURAS ACTIVAS  \(gameManager.equippedMateria.count) / \(GameManager.maximumEquippedMateria)   ·   Recuperas 1 PM cada 3 min"
+        magicPointsLabel.attributedText = ScreenKit.symbolText(
+            "sparkles",
+            text: " \(gameManager.magicPoints) / \(GameManager.maximumMagicPoints) PM ",
+            size: 12,
+            weight: .bold,
+            color: ScreenKit.sky,
+            textStyle: .caption1
+        )
+        slotsLabel.text = "RANURAS ACTIVAS \(gameManager.equippedMateria.count) / \(GameManager.maximumEquippedMateria)  ·  +1 PM cada 3 min"
         let sleeping = gameManager.pet?.isSleeping ?? false
         for materia in Materia.allCases {
             cards[materia]?.update(
@@ -66,15 +97,15 @@ final class MateriaViewController: UIViewController {
 
     private func toggle(_ materia: Materia) {
         guard gameManager.ownedMateria.contains(materia) else {
-            messageLabel.text = "Consigue esta materia en el bazar."
+            show("Consigue esta materia en el bazar.", isError: true)
             return
         }
         if gameManager.toggleMateria(materia) {
-            messageLabel.text = gameManager.equippedMateria.contains(materia)
+            show(gameManager.equippedMateria.contains(materia)
                 ? "\(materia.name) equipada: su efecto pasivo está activo."
-                : "\(materia.name) retirada de las ranuras."
+                : "\(materia.name) retirada de las ranuras.")
         } else {
-            messageLabel.text = "Las dos ranuras están ocupadas. Retira una materia primero."
+            show("Las dos ranuras están ocupadas. Retira una materia primero.", isError: true)
         }
         refresh()
     }
@@ -82,19 +113,24 @@ final class MateriaViewController: UIViewController {
     private func cast(_ materia: Materia) {
         guard gameManager.castMateria(materia) else {
             if gameManager.pet?.isSleeping == true {
-                messageLabel.text = "Tu compañero está durmiendo; espera a que despierte para lanzar magia."
+                show("Tu compañero está durmiendo; espera a que despierte para lanzar magia.", isError: true)
             } else if !gameManager.equippedMateria.contains(materia) {
-                messageLabel.text = "Equipa la materia antes de lanzar su habilidad."
+                show("Equipa la materia antes de lanzar su habilidad.", isError: true)
             } else if gameManager.magicPoints >= materia.magicCost {
-                messageLabel.text = "Esa habilidad no hace falta ahora; sus estadísticas ya están al máximo."
+                show("Esa habilidad no hace falta ahora; sus estadísticas ya están al máximo.", isError: true)
             } else {
-                messageLabel.text = "No tienes PM suficientes. Se recuperan con el tiempo."
+                show("No tienes PM suficientes. Se recuperan con el tiempo.", isError: true)
             }
             refresh()
             return
         }
-        messageLabel.text = "\(materia.emoji)  ¡\(materia.name) lanzada!  −\(materia.magicCost) PM."
+        show("\(materia.name) lanzada. −\(materia.magicCost) PM.")
         refresh()
+    }
+
+    private func show(_ text: String, isError: Bool = false) {
+        messageLabel.text = text
+        messageLabel.textColor = isError ? ScreenKit.hunger : ScreenKit.mint
     }
 
     @objc private func openShop() { onOpenShop?() }
@@ -106,13 +142,14 @@ private final class MateriaCardView: UIView {
     var onToggle: (() -> Void)?
     var onCast: (() -> Void)?
 
+    private let iconView: UIImageView
     private let nameLabel: UILabel = {
-        let label = ScreenKit.label("", size: 18, color: .white, weight: .bold)
+        let label = ScreenKit.label("", size: 17, color: .white, weight: .bold, textStyle: .headline)
         label.textAlignment = .left
         return label
     }()
     private let costLabel: UILabel = {
-        let label = ScreenKit.label("", size: 11, color: ScreenKit.gold, weight: .bold)
+        let label = ScreenKit.label("", size: 11, color: ScreenKit.sky, weight: .bold, textStyle: .caption1)
         label.textAlignment = .right
         return label
     }()
@@ -122,31 +159,38 @@ private final class MateriaCardView: UIView {
         return label
     }()
     private let passiveLabel: UILabel = {
-        let label = ScreenKit.label("", size: 11, color: ScreenKit.mint, weight: .medium)
+        let label = ScreenKit.label("", size: 11, color: ScreenKit.mint, weight: .medium, textStyle: .caption1)
         label.textAlignment = .left
         return label
     }()
-    private let equipButton: UIButton = { ScreenKit.button("Equipar") }()
-    private let castButton: UIButton = { ScreenKit.button("Lanzar") }()
-    private lazy var headerStack: UIStackView = { ScreenKit.horizontalStack([nameLabel, costLabel]) }()
+    private let equipButton = ScreenKit.button("Equipar", symbol: "circle.grid.2x2.fill")
+    private let castButton = ScreenKit.button("Lanzar", symbol: "wand.and.stars")
+    private lazy var headerStack: UIStackView = {
+        let stack = ScreenKit.horizontalStack([iconView, nameLabel, costLabel], spacing: 10)
+        stack.distribution = .fill
+        nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return stack
+    }()
     private lazy var buttonStack: UIStackView = {
-        let stack = ScreenKit.horizontalStack([equipButton, castButton])
+        let stack = ScreenKit.horizontalStack([equipButton, castButton], spacing: 10)
         stack.distribution = .fillEqually
         return stack
     }()
     private lazy var contentStack: UIStackView = {
-        ScreenKit.stack([headerStack, descriptionLabel, passiveLabel, buttonStack], spacing: 9)
+        ScreenKit.stack([headerStack, descriptionLabel, passiveLabel, buttonStack], spacing: 10)
     }()
 
     init(materia: Materia) {
         self.materia = materia
+        iconView = ScreenKit.symbolLabel(materia.symbolName, size: 20, color: ScreenKit.rose)
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = ScreenKit.panel
         layer.cornerRadius = 18
+        layer.cornerCurve = .continuous
         layer.borderWidth = 1
-        layer.borderColor = ScreenKit.accent.withAlphaComponent(0.17).cgColor
-        nameLabel.text = "\(materia.emoji)  \(materia.name)"
+        layer.borderColor = ScreenKit.accent.withAlphaComponent(0.12).cgColor
+        nameLabel.text = materia.name
         descriptionLabel.text = materia.description
         passiveLabel.text = "PASIVA  ·  \(materia.passiveDescription)"
         equipButton.addTarget(self, action: #selector(toggleTapped), for: .touchUpInside)
@@ -157,8 +201,9 @@ private final class MateriaCardView: UIView {
             contentStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 15),
             contentStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -15),
             contentStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -15),
-            equipButton.heightAnchor.constraint(equalToConstant: 44),
-            castButton.heightAnchor.constraint(equalToConstant: 44)
+            iconView.widthAnchor.constraint(equalToConstant: 24),
+            equipButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 42),
+            castButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 42)
         ])
     }
 
@@ -179,12 +224,13 @@ private final class MateriaCardView: UIView {
         } else if !canCast {
             castTitle = "Al máximo"
         } else {
-            castTitle = "Lanzar  ·  \(materia.magicCost) PM"
+            castTitle = "Lanzar · \(materia.magicCost) PM"
         }
         ScreenKit.setTitle(castTitle, on: castButton)
-        ScreenKit.setBackground(isEquipped ? UIColor(red: 0.16, green: 0.42, blue: 0.36, alpha: 1) : ScreenKit.panel, on: equipButton)
+        ScreenKit.setBackground(isEquipped ? ScreenKit.accentSoft : ScreenKit.panel, on: equipButton)
         let state = isOwned ? (isEquipped ? "EQUIPADA" : "EN COLECCIÓN") : "DISPONIBLE EN BAZAR"
         passiveLabel.text = "\(state)  ·  \(materia.passiveDescription)"
+        iconView.image = ScreenKit.symbolImage(materia.symbolName, size: 20, color: isEquipped ? ScreenKit.mint : (isOwned ? ScreenKit.rose : ScreenKit.faintText))
     }
 
     @objc private func toggleTapped() { onToggle?() }

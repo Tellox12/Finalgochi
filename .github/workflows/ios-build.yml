@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: Compile Finalgochi for iOS Simulator
+    name: Build and test Finalgochi
     runs-on: macos-latest
     steps:
       - name: Check out repository
@@ -22,3 +22,15 @@ jobs:
           -destination 'generic/platform=iOS Simulator'
           CODE_SIGNING_ALLOWED=NO
           build
+
+      - name: Run unit tests
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available | grep -m1 'iPhone' | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')
+          echo "Using simulator $DEVICE_ID"
+          xcodebuild \
+            -project Finalgochi.xcodeproj \
+            -scheme Finalgochi \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$DEVICE_ID" \
+            CODE_SIGNING_ALLOWED=NO \
+            test

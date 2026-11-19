@@ -31,12 +31,12 @@ enum DailyQuestKind: String, CaseIterable, Codable {
         }
     }
 
-    var symbol: String {
+    var symbolName: String {
         switch self {
-        case .feed: return "🍖"
-        case .play: return "🎮"
-        case .sleep: return "🌙"
-        case .expedition: return "🧭"
+        case .feed: return "fork.knife"
+        case .play: return "gamecontroller.fill"
+        case .sleep: return "moon.stars.fill"
+        case .expedition: return "map.fill"
         }
     }
 }
@@ -49,7 +49,7 @@ struct DailyQuest: Codable, Equatable, Identifiable {
     var id: String { kind.rawValue }
     var isComplete: Bool { progress >= kind.target }
     var summary: String {
-        "\(kind.symbol)  \(kind.title)  \(min(progress, kind.target))/\(kind.target)"
+        "\(kind.title)  \(min(progress, kind.target))/\(kind.target)"
     }
 
     init(kind: DailyQuestKind, progress: Int = 0, rewardClaimed: Bool = false) {

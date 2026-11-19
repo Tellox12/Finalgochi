@@ -7,6 +7,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
         let window = UIWindow(windowScene: windowScene)
+        window.overrideUserInterfaceStyle = .dark
         self.window = window
         let coordinator = AppCoordinator(uiWindow: window)
         appCoordinator = coordinator
@@ -15,5 +16,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func sceneDidBecomeActive(_ scene: UIScene) {
         appCoordinator?.sceneDidBecomeActive()
+    }
+
+    func sceneDidEnterBackground(_ scene: UIScene) {
+        appCoordinator?.sceneDidEnterBackground()
+    }
+
+    func sceneWillResignActive(_ scene: UIScene) {
+        appCoordinator?.sceneDidEnterBackground()
     }
 }

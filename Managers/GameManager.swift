@@ -16,7 +16,16 @@ final class GameManager {
         static let activeExpedition = "finalgochi.activeExpedition.v1"
         static let progression = "finalgochi.progression.v1"
         static let dailyStreak = "finalgochi.dailyStreak.v1"
+        static let schemaVersion = "finalgochi.saveSchemaVersion"
+
+        static let all = [
+            pet, gil, accessories, equippedAccessory, equipment, inventory, quests, materia,
+            equippedMateria, magicPoints, magicUpdatedAt, activeExpedition, progression, dailyStreak
+        ]
     }
+
+    static let currentSchemaVersion = 1
+    static let maximumOfflineInterval: TimeInterval = 12 * 60 * 60
 
     private let defaults: UserDefaults
     private var timer: Timer?
@@ -33,6 +42,8 @@ final class GameManager {
     private(set) var progression: ProgressionState
     private(set) var dailyStreak: DailyStreak
     private var lastMagicUpdatedAt: Date
+    private var lastPersistedAt = Date.distantPast
+    private var observers: [UUID: () -> Void] = [:]
 
     static let maximumMagicPoints = 100
     static let maximumEquippedMateria = 2
@@ -49,7 +60,7 @@ final class GameManager {
 
     var equipmentSummary: String {
         let items = activeEquipment
-        return items.isEmpty ? "Sin equipo" : items.map { "\($0.emoji) \($0.name)" }.joined(separator: "  ·  ")
+        return items.isEmpty ? "Sin equipo" : items.map(\.name).joined(separator: "  ·  ")
     }
 
     var canPlayMiniGame: Bool {
@@ -57,12 +68,30 @@ final class GameManager {
         return !pet.isSleeping && !pet.isGameOver && pet.energy >= 8
     }
 
-    var onChange: (() -> Void)?
     var onGameOver: (() -> Void)?
-    var onQuestReward: ((Int) -> Void)?
+
+    @discardableResult
+    func addObserver(_ observer: @escaping () -> Void) -> UUID {
+        let id = UUID()
+        observers[id] = observer
+        return id
+    }
+
+    func removeObserver(_ id: UUID?) {
+        guard let id else { return }
+        observers.removeValue(forKey: id)
+    }
+
+    private func notifyObservers() {
+        for observer in Array(observers.values) { observer() }
+    }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        let storedSchema = defaults.object(forKey: Key.schemaVersion) as? Int ?? 0
+        if storedSchema == 0 {
+            defaults.set(Self.currentSchemaVersion, forKey: Key.schemaVersion)
+        }
         gil = min(Self.maximumGil, max(0, defaults.object(forKey: Key.gil) as? Int ?? 50))
         dailyQuests = Self.decode(DailyQuestBoard.self, from: defaults.data(forKey: Key.quests)) ?? DailyQuestBoard()
         activeExpedition = Self.decode(ActiveExpedition.self, from: defaults.data(forKey: Key.activeExpedition))
@@ -112,6 +141,7 @@ final class GameManager {
             persist()
         }
         refreshDailyQuestsIfNeeded()
+        lastPersistedAt = Date()
     }
 
     deinit { timer?.invalidate() }
@@ -123,7 +153,7 @@ final class GameManager {
         unlock(.firstFriend)
         persist()
         startTimer()
-        onChange?()
+        notifyObservers()
     }
 
     @discardableResult
@@ -131,7 +161,7 @@ final class GameManager {
         guard var current = pet, current.rename(to: name) else { return false }
         pet = current
         persist()
-        onChange?()
+        notifyObservers()
         return true
     }
 
@@ -150,10 +180,11 @@ final class GameManager {
         equippedMateria = [.cure]
         magicPoints = Self.maximumMagicPoints
         lastMagicUpdatedAt = Date()
+        dailyStreak = DailyStreak()
 
-        defaults.removeObject(forKey: Key.pet)
+        for key in Key.all { defaults.removeObject(forKey: key) }
         persist()
-        onChange?()
+        notifyObservers()
     }
 
     @discardableResult
@@ -166,7 +197,7 @@ final class GameManager {
         pet = current
         activeExpedition = ActiveExpedition(route: route, startedAt: date)
         persist()
-        onChange?()
+        notifyObservers()
         return true
     }
 
@@ -195,19 +226,15 @@ final class GameManager {
         activeExpedition = nil
         recordQuest(.expedition)
         persist()
-        onChange?()
+        notifyObservers()
         return true
     }
 
-    func feed() {
-        _ = use(.ration)
-    }
-
     func sleep() {
-        guard var current = pet else { return }
+        guard var current = pet, !current.isGameOver else { return }
         let now = Date()
-        current.update(for: now.timeIntervalSince(current.lastUpdated), now: now, modifiers: careModifiers)
-        guard !current.isSleeping, current.energy < 100 else {
+        current.update(for: min(Self.maximumOfflineInterval, now.timeIntervalSince(current.lastUpdated)), now: now, modifiers: careModifiers)
+        guard !current.isGameOver, !current.isSleeping, current.energy < 100 else {
             commit(current)
             return
         }
@@ -219,7 +246,7 @@ final class GameManager {
     func wake() {
         guard var current = pet, current.isSleeping else { return }
         let now = Date()
-        current.update(for: now.timeIntervalSince(current.lastUpdated), now: now, modifiers: careModifiers)
+        current.update(for: min(Self.maximumOfflineInterval, now.timeIntervalSince(current.lastUpdated)), now: now, modifiers: careModifiers)
         if current.isSleeping { current.wake(at: now) }
         commit(current)
     }
@@ -227,8 +254,7 @@ final class GameManager {
     @discardableResult
     func playMiniGame(success: Bool) -> Bool {
         updateElapsedTime()
-        guard var current = pet, !current.isSleeping, !current.isGameOver, current.energy > 0 else { return false }
-        let wasGameOver = current.isGameOver
+        guard canPlayMiniGame, var current = pet else { return false }
         current.play()
         let baseExperience = success ? 20 : 5
         current.addExperience(Int((Double(baseExperience) * careModifiers.experienceGainMultiplier).rounded()))
@@ -237,16 +263,31 @@ final class GameManager {
         awardGil(success ? 25 : 5)
         recordQuest(.play)
         persist()
-        onChange?()
-        notifyGameOverIfNeeded(wasGameOver: wasGameOver, current: current)
+        notifyObservers()
         return true
     }
 
+    /// Anything above this counts as full. A freshly decayed stat sits a hair below 100, and
+    /// without the margin the game would let the player waste an item to recover fractions of a point.
+    private static let fullStatMargin = 0.5
+    private static var fullStatThreshold: Double { 100 - fullStatMargin }
+
+    /// Whether using the consumable right now would have any effect. Prevents wasting items on a full pet.
+    func canUse(_ item: ConsumableItem) -> Bool {
+        guard inventory[item, default: 0] > 0, let pet, !pet.isSleeping, !pet.isGameOver else { return false }
+        let threshold = Self.fullStatThreshold
+        switch item {
+        case .ration, .gysahlGreens: return pet.hunger < threshold
+        case .potion: return pet.energy < threshold
+        case .ether: return pet.happiness < threshold
+        }
+    }
+
     func use(_ item: ConsumableItem) -> Bool {
-        guard let quantity = inventory[item], quantity > 0,
+        updateElapsedTime()
+        guard canUse(item), let quantity = inventory[item], quantity > 0,
               var current = pet else { return false }
 
-        let wasGameOver = current.isGameOver
         switch item {
         case .ration:
             current.feed(amount: 25)
@@ -265,8 +306,7 @@ final class GameManager {
         if inventory[item] == 0 { inventory.removeValue(forKey: item) }
         pet = current
         persist()
-        onChange?()
-        notifyGameOverIfNeeded(wasGameOver: wasGameOver, current: current)
+        notifyObservers()
         return true
     }
 
@@ -276,19 +316,21 @@ final class GameManager {
         ownedItems.insert(item)
         unlock(.fashionista)
         persist()
-        onChange?()
+        notifyObservers()
         return true
     }
 
     func buy(_ item: ConsumableItem, quantity: Int = 1) -> Bool {
-        guard quantity > 0 else { return false }
-        let (totalPrice, overflow) = item.price.multipliedReportingOverflow(by: quantity)
-        guard !overflow else { return false }
-        guard gil >= totalPrice else { return false }
-        gil -= totalPrice
-        inventory[item] = min(999, inventory[item, default: 0] + quantity)
+        guard quantity > 0, item.price > 0 else { return false }
+        let availableSpace = max(0, 999 - inventory[item, default: 0])
+        guard availableSpace > 0 else { return false }
+        let affordable = gil / item.price
+        let bought = min(quantity, min(availableSpace, affordable))
+        guard bought > 0 else { return false }
+        gil -= item.price * bought
+        inventory[item] = inventory[item, default: 0] + bought
         persist()
-        onChange?()
+        notifyObservers()
         return true
     }
 
@@ -298,7 +340,7 @@ final class GameManager {
         ownedMateria.insert(materia)
         if ownedMateria.count >= 3 { unlock(.materiaCollector) }
         persist()
-        onChange?()
+        notifyObservers()
         return true
     }
 
@@ -312,7 +354,7 @@ final class GameManager {
             equippedMateria.append(materia)
         }
         persist()
-        onChange?()
+        notifyObservers()
         return true
     }
 
@@ -339,7 +381,7 @@ final class GameManager {
         magicPoints -= materia.magicCost
         pet = current
         persist()
-        onChange?()
+        notifyObservers()
         notifyGameOverIfNeeded(wasGameOver: wasGameOver, current: current)
         return true
     }
@@ -347,11 +389,12 @@ final class GameManager {
     func canCastMateria(_ materia: Materia) -> Bool {
         guard equippedMateria.contains(materia), magicPoints >= materia.magicCost,
               let pet, !pet.isSleeping, !pet.isGameOver else { return false }
+        let threshold = Self.fullStatThreshold
         switch materia {
-        case .cure: return pet.energy < 100 || pet.happiness < 100
+        case .cure: return pet.energy < threshold || pet.happiness < threshold
         case .fire: return true
-        case .haste: return pet.energy < 100
-        case .regen: return pet.hunger < 100 || pet.happiness < 100
+        case .haste: return pet.energy < threshold
+        case .regen: return pet.hunger < threshold || pet.happiness < threshold
         }
     }
 
@@ -360,7 +403,7 @@ final class GameManager {
         guard ownedItems.contains(item) else { return false }
         equippedItems[item.slot] = item
         persist()
-        onChange?()
+        notifyObservers()
         return true
     }
 
@@ -368,21 +411,13 @@ final class GameManager {
         updateElapsedTime()
         equippedItems.removeValue(forKey: slot)
         persist()
-        onChange?()
-    }
-
-    func equip(_ item: StoreItem?) -> Bool {
-        guard let item else {
-            unequip(.charm)
-            return true
-        }
-        return equip(item)
+        notifyObservers()
     }
 
     func addGil(_ amount: Int) {
         awardGil(amount)
         persist()
-        onChange?()
+        notifyObservers()
     }
 
     @discardableResult
@@ -393,7 +428,7 @@ final class GameManager {
         dailyStreak = updatedStreak
         awardGil(reward)
         persist()
-        onChange?()
+        notifyObservers()
         return reward
     }
 
@@ -403,7 +438,7 @@ final class GameManager {
         gil -= decoration.price
         progression.ownedDecorations.insert(decoration)
         persist()
-        onChange?()
+        notifyObservers()
         return true
     }
 
@@ -412,17 +447,14 @@ final class GameManager {
         if let decoration, !progression.ownedDecorations.contains(decoration) { return false }
         progression.equippedDecoration = decoration
         persist()
-        onChange?()
+        notifyObservers()
         return true
     }
 
     func exportSave() -> Data? {
         guard pet != nil else { return nil }
-        let keys = [Key.pet, Key.gil, Key.accessories, Key.equippedAccessory, Key.equipment,
-                    Key.inventory, Key.quests, Key.materia, Key.equippedMateria, Key.magicPoints,
-                    Key.magicUpdatedAt, Key.activeExpedition, Key.progression, Key.dailyStreak]
         var values: [String: Data] = [:]
-        for key in keys {
+        for key in Key.all + [Key.schemaVersion] {
             guard let value = defaults.object(forKey: key),
                   let data = try? PropertyListSerialization.data(fromPropertyList: value, format: .binary, options: 0) else { continue }
             values[key] = data
@@ -431,30 +463,46 @@ final class GameManager {
     }
 
     @discardableResult
-    func importSave(_ data: Data) -> Bool {
+    func importSave(_ data: Data, now: Date = Date()) -> Bool {
         guard data.count <= Self.maximumSaveFileSize else { return false }
         guard let archive = try? JSONDecoder().decode(GameSaveArchive.self, from: data), archive.formatVersion == 2 else { return false }
-        let allowedKeys: Set<String> = [Key.pet, Key.gil, Key.accessories, Key.equippedAccessory, Key.equipment,
-                                        Key.inventory, Key.quests, Key.materia, Key.equippedMateria, Key.magicPoints,
-                                        Key.magicUpdatedAt, Key.activeExpedition, Key.progression, Key.dailyStreak]
+        let allowedKeys = Set(Key.all + [Key.schemaVersion])
         guard archive.values[Key.pet] != nil,
               !archive.values.isEmpty,
               Set(archive.values.keys).isSubset(of: allowedKeys) else { return false }
+
         var decodedValues: [String: Any] = [:]
         for (key, encodedValue) in archive.values {
             guard let value = try? PropertyListSerialization.propertyList(from: encodedValue, options: [], format: nil) else { return false }
             decodedValues[key] = value
         }
+
         guard let petData = decodedValues[Key.pet] as? Data,
-              Self.decode(PetModel.self, from: petData) != nil,
+              var importedPet = Self.decode(PetModel.self, from: petData),
               let savedGil = decodedValues[Key.gil] as? Int else { return false }
+
+        let importedSchema = decodedValues[Key.schemaVersion] as? Int ?? 0
+        guard importedSchema <= Self.currentSchemaVersion else { return false }
+
+        // Rebase the imported timestamps so an old backup does not age or kill the pet on import.
+        importedPet.lastUpdated = now
+        if importedPet.isSleeping {
+            importedPet.sleepStartedAt = now
+        } else {
+            importedPet.sleepStartedAt = nil
+        }
+        guard let rebasedPetData = try? JSONEncoder().encode(importedPet) else { return false }
+
         for key in allowedKeys where !decodedValues.keys.contains(key) {
             defaults.removeObject(forKey: key)
         }
         for (key, value) in decodedValues { defaults.set(value, forKey: key) }
+        defaults.set(rebasedPetData, forKey: Key.pet)
+        defaults.set(Self.currentSchemaVersion, forKey: Key.schemaVersion)
 
         timer?.invalidate()
-        pet = Self.decode(PetModel.self, from: defaults.data(forKey: Key.pet))
+        timer = nil
+        pet = importedPet
         gil = min(Self.maximumGil, max(0, savedGil))
         ownedItems = Set(Self.decode([StoreItem].self, from: defaults.data(forKey: Key.accessories)) ?? [])
         let importedEquipment = Self.decode([EquipmentSlot: StoreItem].self, from: defaults.data(forKey: Key.equipment)) ?? [:]
@@ -466,19 +514,29 @@ final class GameManager {
             .filter { $0.value > 0 }
             .mapValues { min(999, $0) }
         dailyQuests = Self.decode(DailyQuestBoard.self, from: defaults.data(forKey: Key.quests)) ?? DailyQuestBoard()
-        activeExpedition = Self.decode(ActiveExpedition.self, from: defaults.data(forKey: Key.activeExpedition))
         ownedMateria = Set(Self.decode([Materia].self, from: defaults.data(forKey: Key.materia)) ?? [.cure])
         equippedMateria = Array((Self.decode([Materia].self, from: defaults.data(forKey: Key.equippedMateria)) ?? [.cure]).filter { ownedMateria.contains($0) }.prefix(Self.maximumEquippedMateria))
         magicPoints = min(Self.maximumMagicPoints, max(0, defaults.object(forKey: Key.magicPoints) as? Int ?? Self.maximumMagicPoints))
-        lastMagicUpdatedAt = defaults.object(forKey: Key.magicUpdatedAt) as? Date ?? Date()
+        lastMagicUpdatedAt = now
         progression = Self.normalizedProgression(Self.decode(ProgressionState.self, from: defaults.data(forKey: Key.progression)) ?? ProgressionState())
         dailyStreak = Self.decode(DailyStreak.self, from: defaults.data(forKey: Key.dailyStreak)) ?? DailyStreak()
-        if pet != nil {
-            updateElapsedTime()
-            if pet?.isGameOver != true { startTimer() }
+        activeExpedition = Self.decode(ActiveExpedition.self, from: defaults.data(forKey: Key.activeExpedition))
+        if var expedition = activeExpedition, !expedition.isReady(at: now) {
+            let remaining = expedition.remainingTime(at: now)
+            expedition = ActiveExpedition(route: expedition.route, startedAt: now.addingTimeInterval(-(expedition.route.duration - remaining)))
+            activeExpedition = expedition
         }
-        onChange?()
+
+        lastPersistedAt = .distantPast
+        persist()
+        if pet?.isGameOver != true { startTimer() }
+        notifyObservers()
         return true
+    }
+
+    /// Forces a synchronous persistence pass. Call this when the app moves to the background.
+    func saveNow() {
+        persist()
     }
 
     func updateElapsedTime(now: Date = Date()) {
@@ -486,10 +544,11 @@ final class GameManager {
         regenerateMagic(at: now)
         guard var current = pet else { return }
         let wasGameOver = current.isGameOver
-        current.update(for: now.timeIntervalSince(current.lastUpdated), now: now, modifiers: careModifiers)
+        let elapsed = min(Self.maximumOfflineInterval, max(0, now.timeIntervalSince(current.lastUpdated)))
+        current.update(for: elapsed, now: now, modifiers: careModifiers)
         pet = current
-        persist()
-        onChange?()
+        persistIfNeeded()
+        notifyObservers()
         notifyGameOverIfNeeded(wasGameOver: wasGameOver, current: current)
     }
 
@@ -497,7 +556,7 @@ final class GameManager {
         let wasGameOver = pet?.isGameOver ?? false
         pet = current
         persist()
-        onChange?()
+        notifyObservers()
         notifyGameOverIfNeeded(wasGameOver: wasGameOver, current: current)
     }
 
@@ -505,6 +564,7 @@ final class GameManager {
         guard !wasGameOver, current.isGameOver else { return }
         timer?.invalidate()
         timer = nil
+        persist()
         onGameOver?()
     }
 
@@ -558,6 +618,13 @@ final class GameManager {
         defaults.set(lastMagicUpdatedAt, forKey: Key.magicUpdatedAt)
         if let data = try? JSONEncoder().encode(progression) { defaults.set(data, forKey: Key.progression) }
         if let data = try? JSONEncoder().encode(dailyStreak) { defaults.set(data, forKey: Key.dailyStreak) }
+        defaults.set(Self.currentSchemaVersion, forKey: Key.schemaVersion)
+        lastPersistedAt = Date()
+    }
+
+    private func persistIfNeeded() {
+        guard Date().timeIntervalSince(lastPersistedAt) >= 20 else { return }
+        persist()
     }
 
     private func evaluateAchievements() {
@@ -598,10 +665,7 @@ final class GameManager {
 
     private func recordQuest(_ kind: DailyQuestKind) {
         let reward = dailyQuests.record(kind)
-        if reward > 0 {
-            awardGil(reward)
-            onQuestReward?(reward)
-        }
+        if reward > 0 { awardGil(reward) }
         persist()
     }
 

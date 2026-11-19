@@ -21,11 +21,11 @@ enum ExpeditionRoute: String, CaseIterable, Codable, Hashable {
         }
     }
 
-    var symbol: String {
+    var symbolName: String {
         switch self {
-        case .chocoboTrail: return "🌿"
-        case .goblinMarket: return "🏮"
-        case .crystalCavern: return "💎"
+        case .chocoboTrail: return "leaf.fill"
+        case .goblinMarket: return "cart.fill"
+        case .crystalCavern: return "diamond.fill"
         }
     }
 
