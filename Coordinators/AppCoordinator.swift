@@ -10,20 +10,24 @@ final class AppCoordinator: NSObject, Coordinator, UIDocumentPickerDelegate {
     }
 
     private let uiWindow: UIWindow
-    private let rootNavigationController = UINavigationController()
-    private let tabBarController = UITabBarController()
-    private let homeNavigationController = UINavigationController()
-    private let actionsNavigationController = UINavigationController()
-    private let shopNavigationController = UINavigationController()
-    private let profileNavigationController = UINavigationController()
+    private let rootNavigationController = RotatingNavigationController()
+    private let tabBarController = RotatingTabBarController()
+    private let homeNavigationController = RotatingNavigationController()
+    private let actionsNavigationController = RotatingNavigationController()
+    private let shopNavigationController = RotatingNavigationController()
+    private let profileNavigationController = RotatingNavigationController()
     private let gameManager = GameManager()
+
+    private var isShowingGameOver = false
 
     init(uiWindow: UIWindow) {
         self.uiWindow = uiWindow
         super.init()
+        gameManager.onGameOver = { [weak self] in self?.showGameOver() }
     }
 
     func start() {
+        uiWindow.overrideUserInterfaceStyle = .dark
         rootNavigationController.setNavigationBarHidden(true, animated: false)
         uiWindow.rootViewController = rootNavigationController
         uiWindow.makeKeyAndVisible()
@@ -31,8 +35,27 @@ final class AppCoordinator: NSObject, Coordinator, UIDocumentPickerDelegate {
     }
 
     func sceneDidBecomeActive() {
+        FeedbackManager.shared.resume()
         gameManager.updateElapsedTime()
         _ = gameManager.claimDailyLogin()
+        LocalNotificationManager.clearCareReminder()
+        let hasPendingReturn = gameManager.activeExpedition.map { !$0.isReady() } ?? false
+        if !hasPendingReturn {
+            LocalNotificationManager.clearExpeditionReturn()
+        }
+        if gameManager.pet?.isGameOver == true {
+            showGameOver()
+        }
+    }
+
+    func sceneDidEnterBackground() {
+        gameManager.updateElapsedTime()
+        gameManager.saveNow()
+        if let pet = gameManager.pet, !pet.isGameOver {
+            LocalNotificationManager.scheduleCareReminder(after: 3 * 60 * 60, petName: pet.name)
+        } else {
+            LocalNotificationManager.clearCareReminder()
+        }
     }
 
     private func showSplash() {
@@ -45,6 +68,7 @@ final class AppCoordinator: NSObject, Coordinator, UIDocumentPickerDelegate {
     }
 
     private func showCharacterSelect() {
+        isShowingGameOver = false
         let screen = CharacterSelectViewController()
         screen.onCharacterSelected = { [weak self] kind in
             self?.gameManager.createPet(kind)
@@ -55,7 +79,7 @@ final class AppCoordinator: NSObject, Coordinator, UIDocumentPickerDelegate {
 
     private func showMainTabs() {
         guard gameManager.pet != nil else { showCharacterSelect(); return }
-
+        isShowingGameOver = false
         configureTabBarAppearance()
 
         let home = HomeViewController(gameManager: gameManager)
@@ -64,14 +88,13 @@ final class AppCoordinator: NSObject, Coordinator, UIDocumentPickerDelegate {
         home.onQuickFeed = { [weak self] in
             guard let self else { return }
             if self.gameManager.inventory[.ration, default: 0] > 0 {
-                self.gameManager.feed()
+                _ = self.gameManager.use(.ration)
             } else {
                 self.showInventory()
             }
         }
         home.onQuickPlay = { [weak self] in self?.showMinigame() }
         home.onQuickSleep = { [weak self] in self?.toggleSleep() }
-        home.onGameOver = { [weak self] in self?.showGameOver() }
 
         let actions = ActionMenuViewController(gameManager: gameManager)
         actions.onFeed = { [weak self] in self?.showInventory() }
@@ -97,8 +120,8 @@ final class AppCoordinator: NSObject, Coordinator, UIDocumentPickerDelegate {
 
         configure(homeNavigationController, root: home, title: "Hábitat", symbol: "house.fill", tag: MainTab.habitat.rawValue)
         configure(actionsNavigationController, root: actions, title: "Acciones", symbol: "sparkles", tag: MainTab.actions.rawValue)
-        configure(shopNavigationController, root: shop, title: "Tienda", symbol: "bag.fill", tag: MainTab.shop.rawValue)
-        configure(profileNavigationController, root: profile, title: "Ficha", symbol: "person.fill", tag: MainTab.profile.rawValue)
+        configure(shopNavigationController, root: shop, title: "Bazar", symbol: "bag.fill", tag: MainTab.shop.rawValue)
+        configure(profileNavigationController, root: profile, title: "Ficha", symbol: "person.crop.circle.fill", tag: MainTab.profile.rawValue)
 
         tabBarController.setViewControllers([
             homeNavigationController,
@@ -112,20 +135,27 @@ final class AppCoordinator: NSObject, Coordinator, UIDocumentPickerDelegate {
 
     private func configureTabBarAppearance() {
         let appearance = UITabBarAppearance()
-        appearance.configureWithDefaultBackground()
+        appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = ScreenKit.panel
+        appearance.shadowColor = UIColor.white.withAlphaComponent(0.06)
         for itemAppearance in [appearance.stackedLayoutAppearance, appearance.inlineLayoutAppearance, appearance.compactInlineLayoutAppearance] {
-            itemAppearance.normal.iconColor = ScreenKit.mutedText
-            itemAppearance.normal.titleTextAttributes = [.foregroundColor: ScreenKit.mutedText]
+            itemAppearance.normal.iconColor = ScreenKit.faintText
+            itemAppearance.normal.titleTextAttributes = [
+                .foregroundColor: ScreenKit.faintText,
+                .font: ScreenKit.roundedFont(size: 10, weight: .medium, textStyle: .caption2)
+            ]
             itemAppearance.selected.iconColor = ScreenKit.accent
-            itemAppearance.selected.titleTextAttributes = [.foregroundColor: ScreenKit.accent]
+            itemAppearance.selected.titleTextAttributes = [
+                .foregroundColor: ScreenKit.accent,
+                .font: ScreenKit.roundedFont(size: 10, weight: .semibold, textStyle: .caption2)
+            ]
         }
         tabBarController.tabBar.standardAppearance = appearance
         if #available(iOS 15.0, *) {
             tabBarController.tabBar.scrollEdgeAppearance = appearance
         }
         tabBarController.tabBar.tintColor = ScreenKit.accent
-        tabBarController.tabBar.unselectedItemTintColor = ScreenKit.mutedText
+        tabBarController.tabBar.unselectedItemTintColor = ScreenKit.faintText
     }
 
     private func configure(_ navigationController: UINavigationController, root: UIViewController, title: String, symbol: String, tag: Int) {
@@ -179,14 +209,16 @@ final class AppCoordinator: NSObject, Coordinator, UIDocumentPickerDelegate {
         guard gameManager.canPlayMiniGame else { return }
         let navigationController = selectedMainNavigationController
         let screen = MinigameViewController()
-        screen.onFinish = { [weak self, weak navigationController] success in
+        screen.onResult = { [weak self] success in
             guard let self else { return }
-            let didApplyResult = self.gameManager.playMiniGame(success: success)
-            navigationController?.popToRootViewController(animated: true)
-            self.selectTab(.habitat)
-            if didApplyResult {
+            let didApply = self.gameManager.playMiniGame(success: success)
+            if didApply {
                 (self.homeNavigationController.viewControllers.first as? HomeViewController)?.showMiniGameResult(success: success)
             }
+        }
+        screen.onClose = { [weak self, weak navigationController] in
+            navigationController?.popToRootViewController(animated: true)
+            self?.selectTab(.habitat)
         }
         navigationController.pushViewController(screen, animated: true)
     }
@@ -242,6 +274,7 @@ final class AppCoordinator: NSObject, Coordinator, UIDocumentPickerDelegate {
 
     private func showSettings() {
         let screen = SettingsViewController()
+        screen.petName = gameManager.pet?.name ?? "Tu compañero"
         screen.onClose = { [weak self] in
             self?.homeNavigationController.popViewController(animated: true)
         }
@@ -277,14 +310,38 @@ final class AppCoordinator: NSObject, Coordinator, UIDocumentPickerDelegate {
         guard let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
               let fileSize = values.fileSize,
               fileSize <= GameManager.maximumSaveFileSize,
-              let data = try? Data(contentsOf: url),
-              gameManager.importSave(data) else {
+              let data = try? Data(contentsOf: url) else {
             controller.dismiss(animated: true) { [weak self] in
                 self?.presentSaveMessage("El respaldo no es válido o está dañado.")
             }
             return
         }
+
+        controller.dismiss(animated: true) { [weak self] in
+            guard let self else { return }
+            let alert = UIAlertController(
+                title: "Restaurar respaldo",
+                message: "Se sobrescribirá la partida actual con el contenido del archivo. Esta acción no se puede deshacer.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "Cancelar", style: .cancel))
+            alert.addAction(UIAlertAction(title: "Restaurar", style: .destructive) { _ in
+                // Wait for the confirmation alert to finish dismissing before the root view changes.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                    self?.performImport(data)
+                }
+            })
+            self.uiWindow.rootViewController?.present(alert, animated: true)
+        }
+    }
+
+    private func performImport(_ data: Data) {
+        guard gameManager.importSave(data) else {
+            presentSaveMessage("El respaldo no es válido o pertenece a una versión más reciente.")
+            return
+        }
         LocalNotificationManager.clearExpeditionReturn()
+        LocalNotificationManager.clearCareReminder()
         if let expedition = gameManager.activeExpedition,
            let pet = gameManager.pet,
            !expedition.isReady() {
@@ -294,36 +351,61 @@ final class AppCoordinator: NSObject, Coordinator, UIDocumentPickerDelegate {
                 routeName: expedition.route.title
             )
         }
-        controller.dismiss(animated: true) { [weak self] in
-            guard let self else { return }
-            if self.gameManager.pet?.isGameOver == true {
-                self.showGameOver()
-            } else {
-                self.showMainTabs()
-            }
-            self.presentSaveMessage("Partida restaurada correctamente.")
+        if gameManager.pet?.isGameOver == true {
+            showGameOver()
+        } else {
+            showMainTabs()
         }
+        presentSaveMessage("Partida restaurada correctamente.")
     }
 
-    private func presentSaveMessage(_ message: String) {
+    private func presentSaveMessage(_ message: String, attempt: Int = 0) {
+        guard let root = uiWindow.rootViewController else { return }
+        // Import failures are reported from inside an alert action; wait until that alert is gone.
+        if root.presentedViewController != nil, attempt < 8 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                self?.presentSaveMessage(message, attempt: attempt + 1)
+            }
+            return
+        }
         let alert = UIAlertController(title: "Respaldo", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "Aceptar", style: .default))
-        uiWindow.rootViewController?.present(alert, animated: true)
+        root.present(alert, animated: true)
     }
 
     private func showGameOver() {
+        guard !isShowingGameOver else { return }
+        isShowingGameOver = true
+        LocalNotificationManager.clearAll()
         let screen = GameOverViewController()
+        screen.petName = gameManager.pet?.name
         screen.onRestart = { [weak self] in
             guard let self else { return }
-            LocalNotificationManager.clearExpeditionReturn()
+            LocalNotificationManager.clearAll()
             self.gameManager.reset()
+            self.isShowingGameOver = false
             self.showCharacterSelect()
         }
-        rootNavigationController.setViewControllers([screen], animated: false)
+        setRoot(screen)
         uiWindow.rootViewController = rootNavigationController
     }
 
     private func setRoot(_ screen: UIViewController) {
         rootNavigationController.setViewControllers([screen], animated: false)
     }
+}
+
+// MARK: - Rotation
+
+/// Containers normally forward `supportedInterfaceOrientations` to their children, and a plain
+/// `UIViewController` excludes portrait upside down on iPhone. These subclasses keep every screen
+/// rotatable in all four orientations on both iPhone and iPad.
+private final class RotatingNavigationController: UINavigationController {
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .all }
+    override var shouldAutorotate: Bool { true }
+}
+
+private final class RotatingTabBarController: UITabBarController {
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .all }
+    override var shouldAutorotate: Bool { true }
 }

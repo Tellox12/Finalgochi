@@ -43,9 +43,10 @@ final class HabitatSceneView: UIView {
         context.setFillColor(orbColor.cgColor)
         context.fillEllipse(in: CGRect(x: rect.width * 0.78, y: 24, width: 34, height: 34))
 
-        if let decoration {
-            let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 24), .shadow: NSShadow()]
-            (decoration.emoji as NSString).draw(at: CGPoint(x: 18, y: rect.height * 0.70), withAttributes: attributes)
+        if let decoration,
+           let image = UIImage(systemName: decoration.symbolName, withConfiguration: UIImage.SymbolConfiguration(pointSize: 26, weight: .medium))?
+            .withTintColor(UIColor.white.withAlphaComponent(0.82), renderingMode: .alwaysOriginal) {
+            image.draw(at: CGPoint(x: 18, y: rect.height * 0.70))
         }
 
         context.setFillColor(UIColor(red: 0.12, green: 0.23, blue: 0.34, alpha: 0.64).cgColor)

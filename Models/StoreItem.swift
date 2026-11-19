@@ -48,14 +48,14 @@ enum StoreItem: String, CaseIterable, Codable, Hashable {
         }
     }
 
-    var emoji: String {
+    var symbolName: String {
         switch self {
-        case .ribbon: return "🎀"
-        case .feather: return "🪶"
-        case .cactusHat: return "🤠"
-        case .kupoRobe: return "🥋"
-        case .chocoboHarness: return "🧵"
-        case .mageCloak: return "🧥"
+        case .ribbon: return "gift.fill"
+        case .feather: return "feather"
+        case .cactusHat: return "crown.fill"
+        case .kupoRobe: return "tshirt.fill"
+        case .chocoboHarness: return "figure.walk"
+        case .mageCloak: return "wand.and.stars"
         }
     }
 
@@ -77,7 +77,7 @@ enum StoreItem: String, CaseIterable, Codable, Hashable {
         case .cactusHat: return PetCareModifiers(hungerDecayMultiplier: 0.88)
         case .kupoRobe: return PetCareModifiers(happinessDecayMultiplier: 0.90)
         case .chocoboHarness: return PetCareModifiers(hungerDecayMultiplier: 0.90)
-        case .mageCloak: return PetCareModifiers(sleepRecoveryMultiplier: 1.22)
+        case .mageCloak: return PetCareModifiers(sleepRecoveryMultiplier: 1.22, experienceGainMultiplier: 1.08)
         }
     }
 }
@@ -94,12 +94,12 @@ enum Materia: String, CaseIterable, Codable, Hashable {
         }
     }
 
-    var emoji: String {
+    var symbolName: String {
         switch self {
-        case .cure: return "💚"
-        case .fire: return "🔥"
-        case .haste: return "⚡"
-        case .regen: return "🌱"
+        case .cure: return "cross.case.fill"
+        case .fire: return "flame.fill"
+        case .haste: return "bolt.fill"
+        case .regen: return "leaf.fill"
         }
     }
 
@@ -173,12 +173,21 @@ enum ConsumableItem: String, CaseIterable, Codable, Hashable {
         }
     }
 
-    var emoji: String {
+    var symbolName: String {
         switch self {
-        case .ration: return "🍖"
-        case .gysahlGreens: return "🥬"
-        case .potion: return "🧪"
-        case .ether: return "✨"
+        case .ration: return "takeoutbag.and.cup.and.straw.fill"
+        case .gysahlGreens: return "leaf.fill"
+        case .potion: return "bolt.heart.fill"
+        case .ether: return "sparkles"
+        }
+    }
+
+    var effectDescription: String {
+        switch self {
+        case .ration: return "Recupera 25 de saciedad."
+        case .gysahlGreens: return "Recupera 45 de saciedad y 5 de ánimo."
+        case .potion: return "Recupera 30 de energía."
+        case .ether: return "Recupera 30 de ánimo."
         }
     }
 }

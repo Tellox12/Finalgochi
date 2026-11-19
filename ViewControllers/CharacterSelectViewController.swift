@@ -91,6 +91,7 @@ private final class CharacterSelectionCard: UIButton {
         let stack = ScreenKit.horizontalStack([portraitAura, textStack])
         stack.distribution = .fill
         stack.alignment = .center
+        stack.isUserInteractionEnabled = false
         return stack
     }()
 
@@ -116,7 +117,7 @@ private final class CharacterSelectionCard: UIButton {
         portraitAura.addSubview(spriteView)
         addSubview(contentStack)
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: 150),
+            heightAnchor.constraint(greaterThanOrEqualToConstant: 150),
             contentStack.topAnchor.constraint(equalTo: topAnchor, constant: 11),
             contentStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             contentStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),

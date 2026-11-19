@@ -4,48 +4,49 @@ final class ExpeditionsViewController: UIViewController {
     private let gameManager: GameManager
     var onClose: (() -> Void)?
 
+    private var observerToken: UUID?
     private var clockTimer: Timer?
     private var feedbackMessage = ""
 
-    private let titleLabel: UILabel = {
-        ScreenKit.label("TABLÓN DE EXPEDICIONES", size: 13, color: ScreenKit.gold, weight: .bold)
-    }()
+    private let titleLabel = ScreenKit.label("Expediciones", size: 27, color: .white, weight: .bold, textStyle: .largeTitle)
     private let introLabel: UILabel = {
-        let label = ScreenKit.label("Elige una misión, prepara a tu compañero y vuelve por sus tesoros.", size: 15, color: ScreenKit.mutedText)
+        let label = ScreenKit.label("Elige una misión, prepara a tu compañero y vuelve por sus tesoros.", size: 14, color: ScreenKit.mutedText)
         label.textAlignment = .left
         return label
     }()
     private let companionLabel: UILabel = {
-        let label = ScreenKit.label("", size: 13, color: .white, weight: .semibold)
+        let label = ScreenKit.label("", size: 12.5, color: ScreenKit.mutedText)
         label.textAlignment = .left
         return label
     }()
     private let companionCard: UIView = { ScreenKit.card() }()
-    private let activeTitleLabel: UILabel = {
-        ScreenKit.label("EXPEDICIÓN EN CURSO", size: 12, color: ScreenKit.mint, weight: .bold)
-    }()
+    private let activeTitleLabel = ScreenKit.sectionTitle("EXPEDICIÓN EN CURSO", color: ScreenKit.mint)
     private let activeStatusLabel: UILabel = {
-        ScreenKit.label("", size: 15, color: .white, weight: .semibold)
+        let label = ScreenKit.label("", size: 15, color: .white, weight: .semibold, textStyle: .headline)
+        label.textAlignment = .left
+        return label
     }()
     private let activeProgressView: UIProgressView = {
         let progress = UIProgressView(progressViewStyle: .default)
         progress.translatesAutoresizingMaskIntoConstraints = false
-        progress.trackTintColor = UIColor.white.withAlphaComponent(0.10)
+        progress.trackTintColor = UIColor.white.withAlphaComponent(0.08)
         progress.progressTintColor = ScreenKit.mint
+        progress.layer.cornerRadius = 3.5
+        progress.clipsToBounds = true
         return progress
     }()
-    private let claimButton: UIButton = { ScreenKit.button("🎁  Reclamar recompensa") }()
+    private let claimButton = ScreenKit.button("Reclamar recompensa", symbol: "shippingbox.fill", style: .primary)
     private let activeCard: UIView = { ScreenKit.card() }()
-    private let routesTitleLabel: UILabel = {
-        ScreenKit.label("DESTINOS", size: 12, color: ScreenKit.gold, weight: .bold)
-    }()
-    private let meadowButton: UIButton = { ScreenKit.button("") }()
-    private let marketButton: UIButton = { ScreenKit.button("") }()
-    private let cavernButton: UIButton = { ScreenKit.button("") }()
+    private let routesTitleLabel = ScreenKit.sectionTitle("DESTINOS", color: ScreenKit.gold)
+    private let meadowRow = MenuCardControl()
+    private let marketRow = MenuCardControl()
+    private let cavernRow = MenuCardControl()
     private let statusLabel: UILabel = {
-        ScreenKit.label("", size: 12, color: ScreenKit.mutedText)
+        let label = ScreenKit.label("", size: 12, color: ScreenKit.mutedText, textStyle: .caption1)
+        label.textAlignment = .left
+        return label
     }()
-    private let closeButton: UIButton = { ScreenKit.button("Volver al hábitat") }()
+    private let closeButton = ScreenKit.button("Volver al hábitat", symbol: "chevron.left", style: .ghost)
 
     private lazy var activeStack: UIStackView = {
         ScreenKit.stack([activeTitleLabel, activeStatusLabel, activeProgressView, claimButton], spacing: 11)
@@ -54,7 +55,7 @@ final class ExpeditionsViewController: UIViewController {
         ScreenKit.stack([companionLabel], spacing: 8)
     }()
     private lazy var contentStack: UIStackView = {
-        ScreenKit.stack([titleLabel, introLabel, companionCard, activeCard, routesTitleLabel, meadowButton, marketButton, cavernButton, statusLabel, closeButton], spacing: 14)
+        ScreenKit.stack([titleLabel, introLabel, companionCard, activeCard, routesTitleLabel, meadowRow, marketRow, cavernRow, statusLabel, closeButton], spacing: 12)
     }()
 
     init(gameManager: GameManager) {
@@ -67,78 +68,84 @@ final class ExpeditionsViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         ScreenKit.configure(self, title: "Expediciones")
-        meadowButton.addTarget(self, action: #selector(startMeadow), for: .touchUpInside)
-        marketButton.addTarget(self, action: #selector(startMarket), for: .touchUpInside)
-        cavernButton.addTarget(self, action: #selector(startCavern), for: .touchUpInside)
+        titleLabel.textAlignment = .left
+        meadowRow.addTarget(self, action: #selector(startMeadow), for: .touchUpInside)
+        marketRow.addTarget(self, action: #selector(startMarket), for: .touchUpInside)
+        cavernRow.addTarget(self, action: #selector(startCavern), for: .touchUpInside)
         claimButton.addTarget(self, action: #selector(claimReward), for: .touchUpInside)
         closeButton.addTarget(self, action: #selector(close), for: .touchUpInside)
 
         companionCard.addSubview(companionStack)
         activeCard.addSubview(activeStack)
         NSLayoutConstraint.activate([
-            companionStack.topAnchor.constraint(equalTo: companionCard.topAnchor, constant: 16),
+            companionStack.topAnchor.constraint(equalTo: companionCard.topAnchor, constant: 15),
             companionStack.leadingAnchor.constraint(equalTo: companionCard.leadingAnchor, constant: 18),
             companionStack.trailingAnchor.constraint(equalTo: companionCard.trailingAnchor, constant: -18),
-            companionStack.bottomAnchor.constraint(equalTo: companionCard.bottomAnchor, constant: -16),
+            companionStack.bottomAnchor.constraint(equalTo: companionCard.bottomAnchor, constant: -15),
             activeStack.topAnchor.constraint(equalTo: activeCard.topAnchor, constant: 16),
             activeStack.leadingAnchor.constraint(equalTo: activeCard.leadingAnchor, constant: 18),
             activeStack.trailingAnchor.constraint(equalTo: activeCard.trailingAnchor, constant: -18),
             activeStack.bottomAnchor.constraint(equalTo: activeCard.bottomAnchor, constant: -16),
-            activeProgressView.heightAnchor.constraint(equalToConstant: 7)
+            activeProgressView.heightAnchor.constraint(equalToConstant: 6)
         ])
 
-        configureRouteButtons()
+        configureRoutes()
         ScreenKit.installScrollable(contentStack, in: self)
-        gameManager.onChange = { [weak self] in self?.refresh() }
+        observerToken = gameManager.addObserver { [weak self] in self?.refresh() }
         refresh()
         clockTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             self?.refresh()
         }
     }
 
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
         gameManager.updateElapsedTime()
         refresh()
     }
 
-    deinit { clockTimer?.invalidate() }
-
-    private func configureRouteButtons() {
-        configure(meadowButton, for: .chocoboTrail, tint: UIColor(red: 0.14, green: 0.34, blue: 0.31, alpha: 1))
-        configure(marketButton, for: .goblinMarket, tint: UIColor(red: 0.35, green: 0.25, blue: 0.39, alpha: 1))
-        configure(cavernButton, for: .crystalCavern, tint: UIColor(red: 0.20, green: 0.29, blue: 0.48, alpha: 1))
+    deinit {
+        gameManager.removeObserver(observerToken)
+        clockTimer?.invalidate()
     }
 
-    private func configure(_ button: UIButton, for route: ExpeditionRoute, tint: UIColor) {
+    private func configureRoutes() {
+        updateRoute(meadowRow, route: .chocoboTrail, tint: ScreenKit.mint)
+        updateRoute(marketRow, route: .goblinMarket, tint: ScreenKit.rose)
+        updateRoute(cavernRow, route: .crystalCavern, tint: ScreenKit.sky)
+    }
+
+    private func updateRoute(_ control: MenuCardControl, route: ExpeditionRoute, tint: UIColor) {
         let minutes = Int(route.duration / 60)
-        let durationText = minutes == 0 ? "1 min" : "\(minutes) min"
-        let title = "\(route.symbol)  \(route.title)\n\(route.description)\n\(durationText)  ·  +\(route.gilReward) Gil  ·  +\(route.experienceReward) EXP  ·  \(route.loot.emoji)\nEncuentro: \(route.discoveredPet.emoji) \(route.discoveredPet.displayName)\nNivel \(route.minimumLevel)+  ·  Energía \(Int(route.minimumEnergy))+"
-        ScreenKit.setTitle(title, on: button)
-        button.titleLabel?.font = UIFontMetrics(forTextStyle: .headline).scaledFont(for: .systemFont(ofSize: 15, weight: .semibold))
-        button.titleLabel?.adjustsFontForContentSizeCategory = true
-        button.titleLabel?.textAlignment = .left
-        button.titleLabel?.numberOfLines = 0
-        button.contentHorizontalAlignment = .leading
-        ScreenKit.setBackground(tint, on: button)
-        button.layer.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
-        button.layer.shadowOpacity = 0.20
-        button.heightAnchor.constraint(greaterThanOrEqualToConstant: 100).isActive = true
+        let durationText = minutes <= 1 ? "1 min" : "\(minutes) min"
+        control.update(
+            symbolName: route.symbolName,
+            title: route.title,
+            subtitle: route.description,
+            footnote: "\(durationText) · +\(route.gilReward) Gil · +\(route.experienceReward) EXP · \(route.loot.name)",
+            tint: tint
+        )
+        control.accessibilityLabel = "\(route.title). \(route.description). \(durationText). Nivel \(route.minimumLevel) o superior. Energía \(Int(route.minimumEnergy)) o superior."
     }
 
     private func refresh() {
         guard let pet = gameManager.pet else { return }
-        companionLabel.text = "\(pet.kind.emoji)  \(pet.name) · Nivel \(pet.level)\n✦ Ánimo \(Int(pet.happiness))%    ☾ Energía \(Int(pet.energy))%    🍖 Saciedad \(Int(pet.hunger))%"
-        meadowButton.isEnabled = gameManager.canStartExpedition(.chocoboTrail)
-        marketButton.isEnabled = gameManager.canStartExpedition(.goblinMarket)
-        cavernButton.isEnabled = gameManager.canStartExpedition(.crystalCavern)
-        for button in [meadowButton, marketButton, cavernButton] {
-            button.alpha = button.isEnabled ? 1 : 0.42
+        companionLabel.attributedText = companionText(for: pet)
+        for (control, route, tint) in [
+            (meadowRow, ExpeditionRoute.chocoboTrail, ScreenKit.mint),
+            (marketRow, ExpeditionRoute.goblinMarket, ScreenKit.rose),
+            (cavernRow, ExpeditionRoute.crystalCavern, ScreenKit.sky)
+        ] {
+            let available = gameManager.canStartExpedition(route)
+            control.isEnabled = available
+            updateRoute(control, route: route, tint: available ? tint : ScreenKit.faintText)
         }
 
         if let expedition = gameManager.activeExpedition {
             activeCard.isHidden = false
-            activeStatusLabel.text = "\(expedition.route.symbol)  \(expedition.route.title)\n\(expedition.isReady() ? "¡Tu compañero regresó!" : "Regresa en \(formattedTime(expedition.remainingTime()))")"
+            activeStatusLabel.text = expedition.isReady()
+                ? "\(expedition.route.title) · tu compañero ya ha vuelto."
+                : "\(expedition.route.title) · regresa en \(formattedTime(expedition.remainingTime()))"
             activeProgressView.setProgress(Float(expedition.progress()), animated: true)
             claimButton.isEnabled = expedition.isReady()
             claimButton.alpha = claimButton.isEnabled ? 1 : 0.45
@@ -148,6 +155,25 @@ final class ExpeditionsViewController: UIViewController {
             activeProgressView.setProgress(0, animated: false)
             statusLabel.text = feedbackMessage.isEmpty ? availabilityMessage(for: pet) : feedbackMessage
         }
+    }
+
+    private func companionText(for pet: PetModel) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        result.append(NSAttributedString(
+            string: "\(pet.name) · Nivel \(pet.level)\n",
+            attributes: [
+                .font: ScreenKit.roundedFont(size: 15, weight: .bold, textStyle: .headline),
+                .foregroundColor: UIColor.white
+            ]
+        ))
+        result.append(NSAttributedString(
+            string: "Saciedad \(Int(pet.hunger))%   ·   Ánimo \(Int(pet.happiness))%   ·   Energía \(Int(pet.energy))%",
+            attributes: [
+                .font: ScreenKit.roundedFont(size: 11.5, weight: .medium, textStyle: .caption1),
+                .foregroundColor: ScreenKit.mutedText
+            ]
+        ))
+        return result
     }
 
     private func availabilityMessage(for pet: PetModel) -> String {
@@ -169,11 +195,11 @@ final class ExpeditionsViewController: UIViewController {
 
     private func start(_ route: ExpeditionRoute) {
         let didStart = gameManager.startExpedition(route)
-        feedbackMessage = didStart
-            ? "\(route.symbol) ¡\(gameManager.pet?.name ?? "Tu compañero") salió a \(route.title.lowercased())!"
-            : "No cumple los requisitos para esta ruta."
         if didStart, let petName = gameManager.pet?.name {
+            feedbackMessage = "\(petName) salió hacia \(route.title.lowercased())."
             LocalNotificationManager.scheduleExpeditionReturn(after: route.duration, petName: petName, routeName: route.title)
+        } else {
+            feedbackMessage = "No cumple los requisitos para esta ruta."
         }
         refresh()
     }
@@ -184,10 +210,8 @@ final class ExpeditionsViewController: UIViewController {
         guard gameManager.claimExpedition() else { return }
         LocalNotificationManager.clearExpeditionReturn()
         let discovery = route.discoveredPet
-        let discoveryText = hadDiscoveredSpecies
-            ? " · Avance del bestiario: \(discovery.displayName)"
-            : " · Nueva especie descubierta: \(discovery.emoji) \(discovery.displayName)"
-        feedbackMessage = "¡Recompensa! +\(route.gilReward) Gil, +\(route.experienceReward) EXP y \(route.loot.emoji)\(discoveryText)."
+        let discoveryText = hadDiscoveredSpecies ? "" : " Nueva especie descubierta: \(discovery.displayName)."
+        feedbackMessage = "Recompensa obtenida: +\(route.gilReward) Gil, +\(route.experienceReward) EXP y \(route.loot.name).\(discoveryText)"
         refresh()
     }
 

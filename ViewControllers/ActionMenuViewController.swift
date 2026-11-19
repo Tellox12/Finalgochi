@@ -9,9 +9,12 @@ final class ActionMenuViewController: UIViewController {
     var onOpenExpeditions: (() -> Void)?
     var onShowStatus: (() -> Void)?
     var onClose: (() -> Void)?
-    private let titleLabel: UILabel = { ScreenKit.label("¿Qué hacemos?", size: 27, color: ScreenKit.accent, weight: .bold) }()
-    private let petStateLabel: UILabel = {
-        let label = ScreenKit.label("", size: 12, color: ScreenKit.mutedText)
+
+    private var observerToken: UUID?
+
+    private let titleLabel = ScreenKit.label("¿Qué hacemos?", size: 27, color: .white, weight: .bold, textStyle: .largeTitle)
+    private let subtitleLabel: UILabel = {
+        let label = ScreenKit.label("Elige un cuidado para tu compañero.", size: 14, color: ScreenKit.mutedText)
         label.textAlignment = .left
         return label
     }()
@@ -20,22 +23,28 @@ final class ActionMenuViewController: UIViewController {
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
+    private let petStateLabel: UILabel = {
+        let label = ScreenKit.label("", size: 13, color: ScreenKit.mutedText)
+        label.textAlignment = .left
+        return label
+    }()
     private let petStateCard: UIView = { ScreenKit.card() }()
-    private let feedButton: UIButton = { ScreenKit.button("🍖  Alimentar") }()
-    private let playButton: UIButton = { ScreenKit.button("🎯  Jugar") }()
-    private let sleepButton: UIButton = { ScreenKit.button("🛌  Dormir") }()
-    private let statusButton: UIButton = { ScreenKit.button("📊  Estado") }()
-    private let materiaButton: UIButton = { ScreenKit.button("🔮  Materia y habilidades") }()
-    private let expeditionsButton: UIButton = { ScreenKit.button("🧭  Salir de expedición") }()
-    private let closeButton: UIButton = { ScreenKit.button("Volver") }()
+    private let feedButton = MenuCardControl()
+    private let playButton = MenuCardControl()
+    private let sleepButton = MenuCardControl()
+    private let expeditionsButton = MenuCardControl()
+    private let materiaButton = MenuCardControl()
+    private let statusButton = MenuCardControl()
+    private let closeButton = ScreenKit.button("Volver", symbol: "chevron.left", style: .ghost)
+
     private lazy var petStateStack: UIStackView = {
-        let stack = ScreenKit.horizontalStack([petSpriteView, petStateLabel])
+        let stack = ScreenKit.horizontalStack([petSpriteView, petStateLabel], spacing: 14)
         stack.distribution = .fill
         stack.alignment = .center
         return stack
     }()
     private lazy var contentStack: UIStackView = {
-        ScreenKit.stack([titleLabel, petStateCard, feedButton, playButton, sleepButton, expeditionsButton, materiaButton, statusButton, closeButton], spacing: 12)
+        ScreenKit.stack([titleLabel, subtitleLabel, petStateCard, feedButton, playButton, sleepButton, expeditionsButton, materiaButton, statusButton, closeButton], spacing: 11)
     }()
 
     init(gameManager: GameManager) {
@@ -47,49 +56,115 @@ final class ActionMenuViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        ScreenKit.configure(self, title: "Comandos")
+        ScreenKit.configure(self, title: "Acciones")
+        titleLabel.textAlignment = .left
         feedButton.addTarget(self, action: #selector(feed), for: .touchUpInside)
         playButton.addTarget(self, action: #selector(play), for: .touchUpInside)
         sleepButton.addTarget(self, action: #selector(sleep), for: .touchUpInside)
-        statusButton.addTarget(self, action: #selector(status), for: .touchUpInside)
-        materiaButton.addTarget(self, action: #selector(openMateria), for: .touchUpInside)
         expeditionsButton.addTarget(self, action: #selector(openExpeditions), for: .touchUpInside)
+        materiaButton.addTarget(self, action: #selector(openMateria), for: .touchUpInside)
+        statusButton.addTarget(self, action: #selector(status), for: .touchUpInside)
         closeButton.addTarget(self, action: #selector(close), for: .touchUpInside)
+
         petStateCard.addSubview(petStateStack)
         NSLayoutConstraint.activate([
             petStateStack.topAnchor.constraint(equalTo: petStateCard.topAnchor, constant: 14),
             petStateStack.leadingAnchor.constraint(equalTo: petStateCard.leadingAnchor, constant: 16),
             petStateStack.trailingAnchor.constraint(equalTo: petStateCard.trailingAnchor, constant: -16),
             petStateStack.bottomAnchor.constraint(equalTo: petStateCard.bottomAnchor, constant: -14),
-            petSpriteView.widthAnchor.constraint(equalToConstant: 64),
-            petSpriteView.heightAnchor.constraint(equalToConstant: 64)
+            petSpriteView.widthAnchor.constraint(equalToConstant: 68),
+            petSpriteView.heightAnchor.constraint(equalToConstant: 68)
         ])
-        ScreenKit.setBackground(UIColor(red: 0.46, green: 0.27, blue: 0.25, alpha: 1), on: feedButton)
-        ScreenKit.setBackground(UIColor(red: 0.28, green: 0.30, blue: 0.53, alpha: 1), on: playButton)
-        ScreenKit.setBackground(UIColor(red: 0.20, green: 0.37, blue: 0.40, alpha: 1), on: sleepButton)
         ScreenKit.installScrollable(contentStack, in: self)
-        gameManager.onChange = { [weak self] in self?.refresh() }
+        observerToken = gameManager.addObserver { [weak self] in self?.refresh() }
         refresh()
     }
 
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        gameManager.onChange = { [weak self] in self?.refresh() }
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        gameManager.updateElapsedTime()
         refresh()
     }
+
+    deinit { gameManager.removeObserver(observerToken) }
 
     private func refresh() {
         guard let pet = gameManager.pet else { return }
         petSpriteView.kind = pet.kind
         petSpriteView.mood = pet.mood
         petSpriteView.equippedItems = gameManager.activeEquipment
-        petStateLabel.text = "\(pet.name) · NIVEL \(pet.level)\n\(pet.mood.symbol)  \(pet.mood.title)\n🍖 Saciedad \(Int(pet.hunger))%   ✦ Ánimo \(Int(pet.happiness))%\n☾ Energía \(Int(pet.energy))%"
-        ScreenKit.setTitle(pet.isSleeping ? "☀️  Despertar" : "🛌  Dormir", on: sleepButton)
-        ScreenKit.setTitle("🔮  Materia  ·  \(gameManager.equippedMateria.count)/\(GameManager.maximumEquippedMateria)  ·  \(gameManager.magicPoints) PM", on: materiaButton)
-        sleepButton.isEnabled = pet.isSleeping || (!pet.isGameOver && pet.energy < 100)
+        petStateLabel.attributedText = statusText(for: pet)
+        petStateLabel.textAlignment = .left
+
+        feedButton.update(
+            symbolName: "fork.knife",
+            title: "Alimentar",
+            subtitle: "Raciones, verduras y objetos de la mochila.",
+            footnote: "Saciedad \(Int(pet.hunger))%",
+            tint: ScreenKit.hunger
+        )
+        playButton.update(
+            symbolName: "gamecontroller.fill",
+            title: "Jugar",
+            subtitle: "Un minijuego rápido sube el ánimo y da experiencia.",
+            footnote: gameManager.canPlayMiniGame ? "Ánimo \(Int(pet.happiness))%" : "Cansa demasiado ahora mismo",
+            tint: ScreenKit.rose
+        )
         playButton.isEnabled = gameManager.canPlayMiniGame
-        sleepButton.alpha = sleepButton.isEnabled ? 1 : 0.45
-        playButton.alpha = playButton.isEnabled ? 1 : 0.45
+        sleepButton.update(
+            symbolName: pet.isSleeping ? "sun.max.fill" : "moon.stars.fill",
+            title: pet.isSleeping ? "Despertar" : "Dormir",
+            subtitle: pet.isSleeping ? "Terminar el descanso antes de tiempo." : "Ocho horas de descanso reparador.",
+            footnote: pet.isSleeping ? "Descansando" : "Energía \(Int(pet.energy))%",
+            tint: ScreenKit.sky
+        )
+        sleepButton.isEnabled = pet.isSleeping || (!pet.isGameOver && pet.energy < 100)
+        expeditionsButton.update(
+            symbolName: "map.fill",
+            title: "Expediciones",
+            subtitle: "Misiones con recompensas de Gil, experiencia y objetos.",
+            tint: ScreenKit.sky
+        )
+        materiaButton.update(
+            symbolName: "circle.hexagongrid.fill",
+            title: "Materia y habilidades",
+            subtitle: "Equipa pasivas y lanza magia con tus puntos de materia.",
+            footnote: "\(gameManager.equippedMateria.count)/\(GameManager.maximumEquippedMateria) equipadas · \(gameManager.magicPoints) PM",
+            tint: ScreenKit.accent
+        )
+        statusButton.update(
+            symbolName: "chart.bar.fill",
+            title: "Ficha del compañero",
+            subtitle: "Estadísticas, colección, logros y racha de cuidado.",
+            tint: ScreenKit.gold
+        )
+    }
+
+    private func statusText(for pet: PetModel) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        result.append(NSAttributedString(
+            string: "\(pet.name) · Nivel \(pet.level)\n",
+            attributes: [
+                .font: ScreenKit.roundedFont(size: 15, weight: .bold, textStyle: .headline),
+                .foregroundColor: UIColor.white
+            ]
+        ))
+        result.append(ScreenKit.symbolText(
+            pet.mood.symbolName,
+            text: "  \(pet.mood.title)",
+            size: 12,
+            weight: .semibold,
+            color: ScreenKit.mint,
+            textStyle: .caption1
+        ))
+        result.append(NSAttributedString(
+            string: "\nSaciedad \(Int(pet.hunger))%   ·   Ánimo \(Int(pet.happiness))%   ·   Energía \(Int(pet.energy))%",
+            attributes: [
+                .font: ScreenKit.roundedFont(size: 11.5, weight: .medium, textStyle: .caption1),
+                .foregroundColor: ScreenKit.mutedText
+            ]
+        ))
+        return result
     }
 
     @objc private func feed() { onFeed?() }

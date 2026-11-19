@@ -31,12 +31,12 @@ enum HabitatDecoration: String, CaseIterable, Codable, Hashable {
         case .starLantern: return "Farol estelar"
         }
     }
-    var emoji: String {
+    var symbolName: String {
         switch self {
-        case .crystalGarden: return "💎"
-        case .chocoboStable: return "🪺"
-        case .moogleWorkshop: return "🛠️"
-        case .starLantern: return "🏮"
+        case .crystalGarden: return "sparkles"
+        case .chocoboStable: return "house.fill"
+        case .moogleWorkshop: return "wrench.and.screwdriver.fill"
+        case .starLantern: return "lightbulb.fill"
         }
     }
     var price: Int {
@@ -92,6 +92,18 @@ enum GameAchievement: String, CaseIterable, Codable, Hashable {
         switch self {
         case .bestiary: return 50
         default: return 25
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .firstFriend: return "heart.fill"
+        case .levelFive: return "star.fill"
+        case .fashionista: return "sparkles"
+        case .materiaCollector: return "circle.hexagongrid.fill"
+        case .expeditionVeteran: return "map.fill"
+        case .reflexMaster: return "bolt.fill"
+        case .bestiary: return "book.closed.fill"
         }
     }
 }

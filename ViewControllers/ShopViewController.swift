@@ -5,70 +5,83 @@ final class ShopViewController: UIViewController {
     var onClose: (() -> Void)?
     var onOpenMateria: (() -> Void)?
 
-    private let titleLabel: UILabel = { ScreenKit.label("Bazar del Cristal", size: 27, color: ScreenKit.accent, weight: .bold) }()
-    private let gilLabel: UILabel = {
-        let label = ScreenKit.label("", size: 15, color: ScreenKit.gold, weight: .bold)
-        label.backgroundColor = ScreenKit.panel
-        label.layer.cornerRadius = 14
-        label.layer.masksToBounds = true
-        label.layer.borderWidth = 1
-        label.layer.borderColor = ScreenKit.gold.withAlphaComponent(0.24).cgColor
-        label.font = .monospacedDigitSystemFont(ofSize: 15, weight: .bold)
+    private var observerToken: UUID?
+
+    private let titleLabel = ScreenKit.label("Bazar del Cristal", size: 27, color: .white, weight: .bold, textStyle: .largeTitle)
+    private let subtitleLabel: UILabel = {
+        let label = ScreenKit.label("Equipo, materias y detalles para tu refugio.", size: 14, color: ScreenKit.mutedText)
+        label.textAlignment = .left
         return label
     }()
+    private let gilLabel = ScreenKit.pill("0 GIL", color: ScreenKit.gold)
     private let categoryControl: UISegmentedControl = {
         let control = UISegmentedControl(items: ["Equipo", "Materia", "Objetos", "Hábitat"])
         control.translatesAutoresizingMaskIntoConstraints = false
         control.selectedSegmentIndex = 0
-        control.selectedSegmentTintColor = ScreenKit.accent.withAlphaComponent(0.85)
-        control.setTitleTextAttributes([.foregroundColor: UIColor.white], for: .normal)
-        control.setTitleTextAttributes([.foregroundColor: ScreenKit.background, .font: UIFont.systemFont(ofSize: 13, weight: .bold)], for: .selected)
+        control.selectedSegmentTintColor = ScreenKit.accentSoft
+        control.setTitleTextAttributes([
+            .foregroundColor: ScreenKit.mutedText,
+            .font: ScreenKit.roundedFont(size: 12.5, weight: .semibold, textStyle: .caption1)
+        ], for: .normal)
+        control.setTitleTextAttributes([
+            .foregroundColor: UIColor.white,
+            .font: ScreenKit.roundedFont(size: 12.5, weight: .bold, textStyle: .caption1)
+        ], for: .selected)
         return control
     }()
-    private let equipmentTitleLabel: UILabel = { ScreenKit.label("🧥  EQUIPO Y VESTIMENTA", size: 12, color: ScreenKit.gold, weight: .bold) }()
-    private let materiaTitleLabel: UILabel = { ScreenKit.label("🔮  MATERIAS", size: 12, color: ScreenKit.gold, weight: .bold) }()
-    private let suppliesTitleLabel: UILabel = { ScreenKit.label("⚗️  SUMINISTROS", size: 12, color: ScreenKit.gold, weight: .bold) }()
-    private let habitatTitleLabel: UILabel = { ScreenKit.label("🏡  DECORA TU HÁBITAT", size: 12, color: ScreenKit.gold, weight: .bold) }()
-    private let messageLabel: UILabel = { ScreenKit.label("Cada pieza ocupa una ranura y aporta una ventaja pasiva.", size: 13, color: ScreenKit.mutedText) }()
-    private let materiaButton: UIButton = { ScreenKit.button("Gestionar materias y habilidades  ›") }()
-    private let closeButton: UIButton = { ScreenKit.button("Volver al hábitat") }()
+    private let equipmentTitleLabel = ScreenKit.sectionTitle("EQUIPO Y VESTIMENTA", color: ScreenKit.gold)
+    private let materiaTitleLabel = ScreenKit.sectionTitle("MATERIAS", color: ScreenKit.gold)
+    private let suppliesTitleLabel = ScreenKit.sectionTitle("SUMINISTROS", color: ScreenKit.gold)
+    private let habitatTitleLabel = ScreenKit.sectionTitle("DECORA TU HÁBITAT", color: ScreenKit.gold)
+    private let messageLabel: UILabel = {
+        let label = ScreenKit.label("Cada pieza ocupa una ranura y aporta una ventaja pasiva.", size: 12.5, color: ScreenKit.mutedText)
+        label.textAlignment = .left
+        return label
+    }()
+    private let materiaButton = MenuCardControl()
+    private let closeButton = ScreenKit.button("Volver al hábitat", symbol: "chevron.left", style: .ghost)
 
-    private let equipmentButtons: [StoreItem: UIButton] = {
-        Dictionary(uniqueKeysWithValues: StoreItem.allCases.map { ($0, ScreenKit.button("")) })
+    private let equipmentRows: [StoreItem: MenuCardControl] = {
+        Dictionary(uniqueKeysWithValues: StoreItem.allCases.map { ($0, MenuCardControl()) })
     }()
-    private let materiaButtons: [Materia: UIButton] = {
-        Dictionary(uniqueKeysWithValues: Materia.allCases.map { ($0, ScreenKit.button("")) })
+    private let materiaRows: [Materia: MenuCardControl] = {
+        Dictionary(uniqueKeysWithValues: Materia.allCases.map { ($0, MenuCardControl()) })
     }()
-    private let consumableButtons: [ConsumableItem: UIButton] = {
-        Dictionary(uniqueKeysWithValues: ConsumableItem.allCases.map { ($0, ScreenKit.button("")) })
+    private let consumableRows: [ConsumableItem: MenuCardControl] = {
+        Dictionary(uniqueKeysWithValues: ConsumableItem.allCases.map { ($0, MenuCardControl()) })
     }()
-    private let decorationButtons: [HabitatDecoration: UIButton] = {
-        Dictionary(uniqueKeysWithValues: HabitatDecoration.allCases.map { ($0, ScreenKit.button("")) })
+    private let decorationRows: [HabitatDecoration: MenuCardControl] = {
+        Dictionary(uniqueKeysWithValues: HabitatDecoration.allCases.map { ($0, MenuCardControl()) })
     }()
 
     private lazy var equipmentSection: UIStackView = {
         var views: [UIView] = [equipmentTitleLabel]
-        views.append(contentsOf: StoreItem.allCases.compactMap { equipmentButtons[$0] })
+        views.append(contentsOf: StoreItem.allCases.compactMap { equipmentRows[$0] })
         return ScreenKit.stack(views, spacing: 10)
     }()
     private lazy var materiaSection: UIStackView = {
         var views: [UIView] = [materiaTitleLabel]
-        views.append(contentsOf: Materia.allCases.compactMap { materiaButtons[$0] })
+        views.append(contentsOf: Materia.allCases.compactMap { materiaRows[$0] })
         views.append(materiaButton)
         return ScreenKit.stack(views, spacing: 10)
     }()
     private lazy var suppliesSection: UIStackView = {
         var views: [UIView] = [suppliesTitleLabel]
-        views.append(contentsOf: ConsumableItem.allCases.compactMap { consumableButtons[$0] })
+        views.append(contentsOf: ConsumableItem.allCases.compactMap { consumableRows[$0] })
         return ScreenKit.stack(views, spacing: 10)
     }()
     private lazy var habitatSection: UIStackView = {
         var views: [UIView] = [habitatTitleLabel]
-        views.append(contentsOf: HabitatDecoration.allCases.compactMap { decorationButtons[$0] })
+        views.append(contentsOf: HabitatDecoration.allCases.compactMap { decorationRows[$0] })
         return ScreenKit.stack(views, spacing: 10)
     }()
+    private lazy var headerStack: UIStackView = {
+        let stack = ScreenKit.headerRow(title: subtitleLabel, trailing: [gilLabel])
+        stack.distribution = .fill
+        return stack
+    }()
     private lazy var contentStack: UIStackView = {
-        ScreenKit.stack([titleLabel, gilLabel, categoryControl, equipmentSection, materiaSection, suppliesSection, habitatSection, messageLabel, closeButton], spacing: 14)
+        ScreenKit.stack([titleLabel, headerStack, categoryControl, equipmentSection, materiaSection, suppliesSection, habitatSection, messageLabel, closeButton], spacing: 14)
     }()
 
     init(gameManager: GameManager) {
@@ -81,165 +94,182 @@ final class ShopViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         ScreenKit.configure(self, title: "Bazar")
-        for (item, button) in equipmentButtons {
-            button.accessibilityIdentifier = item.rawValue
-            button.addTarget(self, action: #selector(equipmentButtonPressed(_:)), for: .touchUpInside)
+        titleLabel.textAlignment = .left
+        for (item, control) in equipmentRows {
+            control.accessibilityIdentifier = item.rawValue
+            control.addTarget(self, action: #selector(equipmentPressed(_:)), for: .touchUpInside)
         }
-        for (materia, button) in materiaButtons {
-            button.accessibilityIdentifier = materia.rawValue
-            button.addTarget(self, action: #selector(materiaButtonPressed(_:)), for: .touchUpInside)
+        for (materia, control) in materiaRows {
+            control.accessibilityIdentifier = materia.rawValue
+            control.addTarget(self, action: #selector(materiaPressed(_:)), for: .touchUpInside)
         }
-        for (item, button) in consumableButtons {
-            button.accessibilityIdentifier = item.rawValue
-            button.addTarget(self, action: #selector(consumableButtonPressed(_:)), for: .touchUpInside)
+        for (item, control) in consumableRows {
+            control.accessibilityIdentifier = item.rawValue
+            control.addTarget(self, action: #selector(consumablePressed(_:)), for: .touchUpInside)
         }
-        for (decoration, button) in decorationButtons {
-            button.accessibilityIdentifier = decoration.rawValue
-            button.addTarget(self, action: #selector(decorationButtonPressed(_:)), for: .touchUpInside)
+        for (decoration, control) in decorationRows {
+            control.accessibilityIdentifier = decoration.rawValue
+            control.addTarget(self, action: #selector(decorationPressed(_:)), for: .touchUpInside)
         }
+        materiaButton.update(
+            symbolName: "circle.hexagongrid.fill",
+            title: "Gestionar materias",
+            subtitle: "Equipa hasta dos pasivas y lanza habilidades.",
+            tint: ScreenKit.accent
+        )
         materiaButton.addTarget(self, action: #selector(openMateria), for: .touchUpInside)
         closeButton.addTarget(self, action: #selector(close), for: .touchUpInside)
         categoryControl.addTarget(self, action: #selector(categoryChanged), for: .valueChanged)
-        ScreenKit.setBackground(UIColor(red: 0.28, green: 0.31, blue: 0.53, alpha: 1), on: materiaButton)
+
         materiaSection.isHidden = true
         suppliesSection.isHidden = true
         habitatSection.isHidden = true
         ScreenKit.installScrollable(contentStack, in: self)
-        gameManager.onChange = { [weak self] in self?.refresh() }
+        observerToken = gameManager.addObserver { [weak self] in self?.refresh() }
         refresh()
     }
 
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        gameManager.onChange = { [weak self] in self?.refresh() }
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        gameManager.updateElapsedTime()
         refresh()
     }
+
+    deinit { gameManager.removeObserver(observerToken) }
 
     private func refresh() {
-        gilLabel.text = "  ◈  \(gameManager.gil) GIL DISPONIBLES  "
+        gilLabel.attributedText = ScreenKit.symbolText("diamond.fill", text: " \(gameManager.gil) GIL ", size: 12, weight: .bold, color: ScreenKit.gold, textStyle: .caption1)
+
         for item in StoreItem.allCases {
-            guard let button = equipmentButtons[item] else { continue }
+            guard let control = equipmentRows[item] else { continue }
             let isOwned = gameManager.ownedItems.contains(item)
             let isEquipped = gameManager.equippedItems[item.slot] == item
-            let title: String
-            if isEquipped {
-                title = "✅  \(item.emoji)  \(item.name)  ·  \(item.slot.displayName)\nEQUIPADO  ·  Toca para retirar"
-            } else if isOwned {
-                title = "\(item.emoji)  \(item.name)  ·  \(item.slot.displayName)\nEquipar  ·  \(item.bonusDescription)"
-            } else {
-                title = "\(item.emoji)  \(item.name)  ·  \(item.price) Gil\n\(item.bonusDescription)"
-            }
-            ScreenKit.setTitle(title, on: button)
-            let canUse = isOwned || gameManager.gil >= item.price
-            button.isEnabled = canUse
-            button.alpha = canUse ? 1 : 0.45
-            ScreenKit.setBackground(isEquipped ? UIColor(red: 0.15, green: 0.35, blue: 0.31, alpha: 1) : (isOwned ? UIColor(red: 0.17, green: 0.27, blue: 0.33, alpha: 1) : ScreenKit.panel), on: button)
+            control.update(
+                symbolName: item.symbolName,
+                title: item.name,
+                subtitle: item.bonusDescription,
+                footnote: isEquipped
+                    ? "EQUIPADO · TOCA PARA RETIRAR"
+                    : (isOwned ? "EN TU COLECCIÓN · TOCA PARA EQUIPAR" : "\(item.price) GIL · \(item.slot.displayName.uppercased())"),
+                tint: isEquipped ? ScreenKit.mint : ScreenKit.accent,
+                selected: isEquipped
+            )
+            control.isEnabled = isOwned || gameManager.gil >= item.price
         }
 
         for materia in Materia.allCases {
-            guard let button = materiaButtons[materia] else { continue }
+            guard let control = materiaRows[materia] else { continue }
             let isOwned = gameManager.ownedMateria.contains(materia)
             let isEquipped = gameManager.equippedMateria.contains(materia)
-            let title: String
-            if isEquipped {
-                title = "✅  \(materia.emoji)  \(materia.name)  ·  \(materia.magicCost) PM\nEQUIPADA  ·  Toca para liberar ranura"
-            } else if isOwned {
-                title = "\(materia.emoji)  \(materia.name)\nEquipar  ·  \(materia.description)"
-            } else {
-                title = "Comprar \(materia.emoji)  \(materia.name)  ·  \(materia.price) Gil\n\(materia.description)"
-            }
-            ScreenKit.setTitle(title, on: button)
-            let canUse = isOwned || gameManager.gil >= materia.price
-            button.isEnabled = canUse
-            button.alpha = canUse ? 1 : 0.45
-            ScreenKit.setBackground(isEquipped ? UIColor(red: 0.15, green: 0.35, blue: 0.31, alpha: 1) : (isOwned ? UIColor(red: 0.17, green: 0.27, blue: 0.33, alpha: 1) : ScreenKit.panel), on: button)
+            control.update(
+                symbolName: materia.symbolName,
+                title: materia.name,
+                subtitle: materia.description,
+                footnote: isEquipped
+                    ? "EQUIPADA · TOCA PARA LIBERAR RANURA"
+                    : (isOwned ? "EN COLECCIÓN · \(materia.magicCost) PM" : "\(materia.price) GIL · \(materia.magicCost) PM"),
+                tint: isEquipped ? ScreenKit.mint : ScreenKit.rose,
+                selected: isEquipped
+            )
+            control.isEnabled = isOwned || gameManager.gil >= materia.price
         }
 
         for item in ConsumableItem.allCases {
-            guard let button = consumableButtons[item] else { continue }
+            guard let control = consumableRows[item] else { continue }
             let stock = gameManager.inventory[item, default: 0]
-            ScreenKit.setTitle("Comprar \(item.emoji)  \(item.name)  ·  \(item.price) Gil\nEn mochila: ×\(stock)", on: button)
-            let canBuy = gameManager.gil >= item.price
-            button.isEnabled = canBuy
-            button.alpha = canBuy ? 1 : 0.45
-            ScreenKit.setBackground(UIColor(red: 0.20, green: 0.25, blue: 0.34, alpha: 1), on: button)
+            control.update(
+                symbolName: item.symbolName,
+                title: item.name,
+                subtitle: item.effectDescription,
+                footnote: "\(item.price) GIL · EN MOCHILA ×\(stock)",
+                tint: ScreenKit.hunger
+            )
+            control.isEnabled = gameManager.gil >= item.price && stock < 999
         }
 
         for decoration in HabitatDecoration.allCases {
-            guard let button = decorationButtons[decoration] else { continue }
+            guard let control = decorationRows[decoration] else { continue }
             let isOwned = gameManager.progression.ownedDecorations.contains(decoration)
             let isEquipped = gameManager.progression.equippedDecoration == decoration
-            let title = isEquipped
-                ? "✅  \(decoration.emoji)  \(decoration.name)\nEQUIPADO · Toca para retirar"
-                : (isOwned ? "\(decoration.emoji)  \(decoration.name)\nAplicar al hábitat" : "\(decoration.emoji)  \(decoration.name) · \(decoration.price) Gil\nColecciona y personaliza tu refugio")
-            ScreenKit.setTitle(title, on: button)
-            let canUse = isOwned || gameManager.gil >= decoration.price
-            button.isEnabled = canUse
-            button.alpha = canUse ? 1 : 0.45
-            ScreenKit.setBackground(isEquipped ? UIColor(red: 0.15, green: 0.35, blue: 0.31, alpha: 1) : ScreenKit.panel, on: button)
+            control.update(
+                symbolName: decoration.symbolName,
+                title: decoration.name,
+                subtitle: "Un detalle más para tu refugio.",
+                footnote: isEquipped
+                    ? "APLICADO · TOCA PARA RETIRAR"
+                    : (isOwned ? "EN COLECCIÓN · TOCA PARA APLICAR" : "\(decoration.price) GIL"),
+                tint: isEquipped ? ScreenKit.mint : ScreenKit.gold,
+                selected: isEquipped
+            )
+            control.isEnabled = isOwned || gameManager.gil >= decoration.price
         }
     }
 
-    @objc private func equipmentButtonPressed(_ sender: UIButton) {
+    @objc private func equipmentPressed(_ sender: MenuCardControl) {
         guard let rawValue = sender.accessibilityIdentifier, let item = StoreItem(rawValue: rawValue) else { return }
         if gameManager.ownedItems.contains(item) {
             if gameManager.equippedItems[item.slot] == item {
                 gameManager.unequip(item.slot)
-                messageLabel.text = "Retiraste \(item.name)."
+                show("Retiraste \(item.name).")
             } else {
                 _ = gameManager.equip(item)
-                messageLabel.text = "\(item.name) equipado. \(item.bonusDescription)."
+                show("\(item.name) equipado. \(item.bonusDescription).")
             }
         } else if gameManager.buy(item) {
-            messageLabel.text = "\(item.name) añadido a tu colección. Tócalo de nuevo para equiparlo."
+            show("\(item.name) añadido a tu colección. Tócalo de nuevo para equiparlo.")
         } else {
-            messageLabel.text = "Te faltan Gil para esta pieza."
+            show("Te faltan Gil para esta pieza.", isError: true)
         }
         refresh()
     }
 
-    @objc private func materiaButtonPressed(_ sender: UIButton) {
+    @objc private func materiaPressed(_ sender: MenuCardControl) {
         guard let rawValue = sender.accessibilityIdentifier, let materia = Materia(rawValue: rawValue) else { return }
         if gameManager.ownedMateria.contains(materia) {
             if gameManager.toggleMateria(materia) {
-                messageLabel.text = gameManager.equippedMateria.contains(materia)
+                show(gameManager.equippedMateria.contains(materia)
                     ? "\(materia.name) equipada. Su ventaja pasiva ya está activa."
-                    : "Liberaste la ranura de \(materia.name)."
+                    : "Liberaste la ranura de \(materia.name).")
             } else {
-                messageLabel.text = "Solo puedes llevar \(GameManager.maximumEquippedMateria) materias equipadas a la vez."
+                show("Solo puedes llevar \(GameManager.maximumEquippedMateria) materias equipadas a la vez.", isError: true)
             }
         } else if gameManager.buy(materia) {
-            messageLabel.text = "Materia \(materia.name) adquirida. Equípala para lanzar su habilidad."
+            show("Materia \(materia.name) adquirida. Equípala para lanzar su habilidad.")
         } else {
-            messageLabel.text = "Te faltan Gil para esta materia."
+            show("Te faltan Gil para esta materia.", isError: true)
         }
         refresh()
     }
 
-    @objc private func consumableButtonPressed(_ sender: UIButton) {
+    @objc private func consumablePressed(_ sender: MenuCardControl) {
         guard let rawValue = sender.accessibilityIdentifier, let item = ConsumableItem(rawValue: rawValue) else { return }
         if gameManager.buy(item) {
-            messageLabel.text = "Compraste \(item.name). En mochila: ×\(gameManager.inventory[item, default: 0])."
+            show("Compraste \(item.name). En mochila: ×\(gameManager.inventory[item, default: 0]).")
         } else {
-            messageLabel.text = "Te faltan Gil para comprar \(item.name)."
+            show("No puedes comprar \(item.name) ahora mismo.", isError: true)
         }
         refresh()
     }
 
-    @objc private func decorationButtonPressed(_ sender: UIButton) {
+    @objc private func decorationPressed(_ sender: MenuCardControl) {
         guard let rawValue = sender.accessibilityIdentifier,
               let decoration = HabitatDecoration(rawValue: rawValue) else { return }
         if gameManager.progression.ownedDecorations.contains(decoration) {
             _ = gameManager.equip(gameManager.progression.equippedDecoration == decoration ? nil : decoration)
-            messageLabel.text = gameManager.progression.equippedDecoration == decoration
+            show(gameManager.progression.equippedDecoration == decoration
                 ? "\(decoration.name) transforma tu refugio."
-                : "Decoración retirada."
+                : "Decoración retirada.")
         } else if gameManager.buy(decoration) {
-            messageLabel.text = "\(decoration.name) añadido a tu colección. Tócalo para aplicarlo."
+            show("\(decoration.name) añadido a tu colección. Tócalo para aplicarlo.")
         } else {
-            messageLabel.text = "Te faltan Gil para decorar el hábitat."
+            show("Te faltan Gil para decorar el hábitat.", isError: true)
         }
         refresh()
+    }
+
+    private func show(_ text: String, isError: Bool = false) {
+        messageLabel.text = text
+        messageLabel.textColor = isError ? ScreenKit.hunger : ScreenKit.mint
     }
 
     @objc private func openMateria() { onOpenMateria?() }
